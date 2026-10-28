@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gatekeeper Admin · Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    :root {
+      --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
+      --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
+      --surface: #ffffff; --surface-hover: #f1f5f9; --ring: #94a3b8;
+    }
+    .dark {
+      --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #f1f5f9;
+      --card: #1e293b; --border: #334155; --approved: #10b981; --rejected: #ef4444;
+      --surface: #1e293b; --surface-hover: #2d3a4e; --ring: #475569;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #f1f5f9;
+        --card: #1e293b; --border: #334155; --approved: #10b981; --rejected: #ef4444;
+        --surface: #1e293b; --surface-hover: #2d3a4e; --ring: #475569;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
+        --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
+        --surface: #ffffff; --surface-hover: #f1f5f9; --ring: #94a3b8;
+      }
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+    }
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px);
+      opacity: 0; transition: opacity 0.25s, transform 0.25s;
+      padding: 0.75rem 1.5rem; border-radius: 9999px; background: #1e293b; color: #fff;
+      min-width: 200px; text-align: center; z-index: 1000; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+      font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.online { background: #059669; }
+    .toast.offline { background: #ef4444; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      font-weight: 500; border-radius: 0.75rem; padding: 0.5rem 1rem;
+      transition: all 0.15s ease; border: 1px solid transparent; cursor: pointer;
+      font-size: 0.9rem; line-height: 1.4;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--surface-hover); border-color: var(--ring); }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .btn-ghost:hover { background: var(--surface-hover); color: var(--fg); }
+    .btn-approve { background: var(--approved); color: white; border-radius: 0.6rem; padding: 0.4rem 0.9rem; font-size: 0.8rem; font-weight: 600; }
+    .btn-approve:hover { filter: brightness(1.1); }
+    .btn-reject { background: var(--rejected); color: white; border-radius: 0.6rem; padding: 0.4rem 0.9rem; font-size: 0.8rem; font-weight: 600; }
+    .btn-reject:hover { filter: brightness(1.1); }
+
+    .btn-approve:disabled, .btn-reject:disabled {
+      opacity: 0.75; cursor: not-allowed; pointer-events: none; filter: none;
+    }
+    .btn-approve .btn-spinner, .btn-reject .btn-spinner {
+      display: inline-block; width: 0.85em; height: 0.85em;
+      border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+      border-radius: 50%; animation: btn-spin 0.6s linear infinite;
+    }
+    @keyframes btn-spin { to { transform: rotate(360deg); } }
+
+    tr.row-removing { animation: rowFadeOut 0.35s ease forwards; pointer-events: none; }
+    @keyframes rowFadeOut {
+      0% { opacity: 1; transform: translateX(0); }
+      100% { opacity: 0; transform: translateX(20px); }
+    }
+
+    .input-field {
+      width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem;
+      background: var(--bg); border: 1px solid var(--border); color: var(--fg);
+      transition: border-color 0.15s, box-shadow 0.15s; font-size: 0.95rem;
+    }
+    .input-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,23,42,0.1); }
+    .dark .input-field:focus { box-shadow: 0 0 0 3px rgba(241,245,249,0.15); }
+
+    .table-row-hover:hover { background-color: var(--surface-hover); }
+    .password-display { font-family: 'SF Mono', 'Fira Code', monospace; letter-spacing: 0.5px; }
+
+    .auth-card { background: var(--card); border: 1px solid var(--border); box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1); }
+    .dark .auth-card { box-shadow: 0 20px 35px -10px rgba(0,0,0,0.4); }
+
+    .toggle-link { color: var(--muted); text-decoration: underline; cursor: pointer; }
+    .toggle-link:hover { color: var(--accent); }
+
+    .live-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--approved); margin-right: 6px; box-shadow: 0 0 0 2px rgba(16,185,129,0.2);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+    /* Pulsing alert indicator (for pending sound) */
+    .alert-banner {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1rem; border-radius: 0.75rem; margin-bottom: 1rem;
+      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+      color: var(--rejected); font-size: 0.85rem; font-weight: 500;
+      animation: alertPulse 1.6s ease-in-out infinite;
+    }
+    .alert-banner.hidden { display: none; }
+    .alert-banner .alert-bell {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 50%;
+      background: rgba(239,68,68,0.15); color: var(--rejected);
+      animation: bellShake 1s ease-in-out infinite;
+    }
+    @keyframes alertPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    @keyframes bellShake {
+      0%, 100% { transform: rotate(0deg); }
+      15% { transform: rotate(-12deg); }
+      30% { transform: rotate(12deg); }
+      45% { transform: rotate(-8deg); }
+      60% { transform: rotate(8deg); }
+      75% { transform: rotate(-4deg); }
+    }
+
+    .text-\[var\(--muted\)\] { color: var(--muted); }
+    .bg-\[var\(--card\)\] { background-color: var(--card); }
+    .border-\[var\(--border\)\] { border-color: var(--border); }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="connection-toast" class="toast offline" role="alert">
+    <i class="fas fa-wifi"></i>
+    <span>You are offline</span>
+  </div>
+
+  <div class="min-h-screen flex flex-col">
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 hidden">
+      <div class="auth-card rounded-2xl p-8 max-w-md w-full">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
+            <i class="fas fa-shield-halved text-2xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold tracking-tight">Gatekeeper Admin</h2>
+          <p class="text-[var(--muted)] mt-1">Sign in to review login requests</p>
+        </div>
+
+        <div id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="far fa-envelope mr-2"></i>Email</label>
+            <input type="email" id="admin-email" placeholder="admin@email.com" required class="input-field">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="fas fa-lock mr-2"></i>Password</label>
+            <input type="password" id="admin-password" placeholder="••••••••" required class="input-field">
+          </div>
+          <button id="admin-login" class="btn btn-primary w-full py-3 text-base"><i class="fas fa-arrow-right-to-bracket"></i>Sign In</button>
+          <p class="text-center text-sm text-[var(--muted)]">No account? <span id="show-signup" class="toggle-link">Create one</span></p>
+        </div>
+
+        <div id="signup-form" class="space-y-4 hidden">
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="far fa-envelope mr-2"></i>Email</label>
+            <input type="email" id="admin-signup-email" placeholder="admin@email.com" required class="input-field">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="fas fa-lock mr-2"></i>Password</label>
+            <input type="password" id="admin-signup-password" placeholder="••••••••" required class="input-field">
+          </div>
+          <button id="admin-signup" class="btn btn-primary w-full py-3 text-base"><i class="fas fa-user-plus"></i>Create Account</button>
+          <p class="text-center text-sm text-[var(--muted)]">Already have an account? <span id="show-login" class="toggle-link">Sign in</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard-screen" class="min-h-screen flex flex-col hidden">
+      <header class="border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center justify-between px-5 py-3.5">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)]">
+              <i class="fas fa-shield-halved text-lg"></i>
+            </div>
+            <div>
+              <h1 class="text-lg font-bold tracking-tight">Gatekeeper</h1>
+              <p class="text-[var(--muted)] text-xs">Authentication Review</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="online-status" class="text-xs font-medium text-[var(--muted)] flex items-center gap-1.5">
+              <span class="live-dot"></span>Online
+            </span>
+            <button id="mute-btn" class="btn btn-ghost text-sm gap-1.5" title="Mute alert sound">
+              <i class="fas fa-volume-high"></i>
+            </button>
+            <a href="view-old-entries.html" class="btn btn-ghost text-sm gap-1.5">
+              <i class="fas fa-clock-rotate-left"></i> Old entries
+            </a>
+            <button id="logout-btn" class="btn btn-ghost text-sm gap-1.5">
+              <i class="fas fa-right-from-bracket"></i> Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 px-5 py-6 max-w-8xl mx-auto w-full">
+        <!-- Alert banner: shows while pending requests exist -->
+        <div id="alert-banner" class="alert-banner hidden">
+          <span class="alert-bell"><i class="fas fa-bell"></i></span>
+          <span><strong>Action required:</strong> You have pending requests waiting for review.</span>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              <i class="fas fa-list-check text-[var(--muted)]"></i>
+              Pending requests
+              <span id="request-count" class="text-sm font-normal bg-[var(--surface-hover)] px-2.5 py-0.5 rounded-full">0</span>
+            </h2>
+          </div>
+          <button id="clear-completed-btn" class="btn btn-secondary gap-2">
+            <i class="fas fa-broom"></i> Clear completed
+          </button>
+        </div>
+
+        <div class="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1100px]">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-left text-[var(--muted)] text-xs uppercase tracking-wider bg-[var(--surface)]/50">
+                  <th class="p-4 font-medium"><i class="fas fa-hashtag mr-1.5 opacity-60"></i>Request ID</th>
+                  <th class="p-4 font-medium"><i class="far fa-file mr-1.5 opacity-60"></i>Page</th>
+                  <th class="p-4 font-medium"><i class="far fa-envelope mr-1.5 opacity-60"></i>Email</th>
+                  <th class="p-4 font-medium"><i class="fas fa-key mr-1.5 opacity-60"></i>Password</th>
+                  <th class="p-4 font-medium"><i class="fas fa-link mr-1.5 opacity-60"></i>Redirect</th>
+                  <th class="p-4 font-medium"><i class="far fa-clock mr-1.5 opacity-60"></i>Time</th>
+                  <th class="p-4 font-medium"><i class="fas fa-bolt mr-1.5 opacity-60"></i>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="requests-table" class="divide-y divide-[var(--border)]">
+              </tbody>
+            </table>
+          </div>
+          <div id="empty-state" class="p-12 text-center text-[var(--muted)] hidden">
+            <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
+            <p class="font-medium">No pending requests</p>
+            <p class="text-sm">All caught up! Requests will appear here.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from '../scripts/supabase.js';
+
+    const POLL_INTERVAL = 60000;
+    const REQUESTS_TABLE = 'gate_requests';
+
+    let requests = [];
+    let realtimeChannel = null;
+    let isOnline = navigator.onLine;
+    let pollInterval = null;
+    let user = null;
+
+    // ---- Audio alert ----
+    let audioCtx = null;
+    let alertInterval = null;
+    let muted = false;
+    const ALERT_LOOP_MS = 2200; // how often the alert chime repeats
+
+    const toast = document.getElementById('connection-toast');
+    const onlineStatus = document.getElementById('online-status');
+    const requestsTable = document.getElementById('requests-table');
+    const clearCompletedBtn = document.getElementById('clear-completed-btn');
+    const authScreen = document.getElementById('auth-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const requestCount = document.getElementById('request-count');
+    const emptyState = document.getElementById('empty-state');
+    const alertBanner = document.getElementById('alert-banner');
+    const muteBtn = document.getElementById('mute-btn');
+
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    document.getElementById('show-signup')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.classList.add('hidden');
+      signupForm.classList.remove('hidden');
+    });
+    document.getElementById('show-login')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      signupForm.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+    });
+
+    // ---- Audio helpers ----
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.warn('Web Audio not supported', e);
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      return audioCtx;
+    }
+
+    // Play a two-note chime. Uses a short, pleasant alert pattern.
+    function playAlertChime() {
+      if (muted) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Two short notes: high then slightly higher (classic notification)
+      const notes = [
+        { freq: 880, start: now, dur: 0.14, gain: 0.18 },
+        { freq: 1174.66, start: now + 0.16, dur: 0.18, gain: 0.18 },
+        { freq: 880, start: now + 0.44, dur: 0.12, gain: 0.14 },
+        { freq: 1174.66, start: now + 0.60, dur: 0.16, gain: 0.14 },
+      ];
+      notes.forEach(n => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, n.start);
+        gainNode.gain.setValueAtTime(0, n.start);
+        gainNode.gain.linearRampToValueAtTime(n.gain, n.start + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, n.start + n.dur);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start(n.start);
+        osc.stop(n.start + n.dur + 0.02);
+      });
+    }
+
+    function startAlertLoop() {
+      if (muted) {
+        // Don't loop if muted; but if the user unmutes, we re-evaluate
+        stopAlertLoop();
+        return;
+      }
+      ensureAudioContext();
+      if (alertInterval) return; // already running
+      playAlertChime();
+      alertInterval = setInterval(() => {
+        if (requests.length === 0) {
+          stopAlertLoop();
+        } else {
+          playAlertChime();
+        }
+      }, ALERT_LOOP_MS);
+    }
+
+    function stopAlertLoop() {
+      if (alertInterval) {
+        clearInterval(alertInterval);
+        alertInterval = null;
+      }
+    }
+
+    // Call whenever requests list changes.
+    // Starts the loop if there are pending requests, stops otherwise.
+    function updateAlertState() {
+      const hasPending = requests.length > 0;
+      if (hasPending) {
+        alertBanner.classList.remove('hidden');
+        startAlertLoop();
+      } else {
+        alertBanner.classList.add('hidden');
+        stopAlertLoop();
+      }
+    }
+
+    // Mute/unmute toggle
+    muteBtn?.addEventListener('click', () => {
+      muted = !muted;
+      muteBtn.innerHTML = muted
+        ? '<i class="fas fa-volume-xmark"></i>'
+        : '<i class="fas fa-volume-high"></i>';
+      muteBtn.title = muted ? 'Unmute alert sound' : 'Mute alert sound';
+      if (muted) {
+        stopAlertLoop();
+      } else if (requests.length > 0) {
+        // Resume alert loop if there are pending requests
+        startAlertLoop();
+      }
+    });
+
+    // Unlock audio on first user interaction (required by browsers)
+    function unlockAudioOnce() {
+      ensureAudioContext();
+    }
+    document.addEventListener('click', unlockAudioOnce, { once: true });
+    document.addEventListener('keydown', unlockAudioOnce, { once: true });
+    // Also attempt to resume on visibility change (browsers may suspend background audio)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        ensureAudioContext();
+        if (requests.length > 0 && !muted) startAlertLoop();
+      }
+    });
+
+    // ---- Auth ----
+    function showAuthScreen() {
+      authScreen.classList.remove('hidden');
+      dashboardScreen.classList.add('hidden');
+      stopAlertLoop();
+    }
+    function showDashboard() {
+      authScreen.classList.add('hidden');
+      dashboardScreen.classList.remove('hidden');
+      fetchRequests();
+    }
+
+    async function handleLogin(email, password) {
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { alert('Login failed: ' + error.message); return false; }
+      user = data.user;
+      showDashboard();
+      return true;
+    }
+
+    async function handleSignup(email, password) {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) { alert('Signup failed: ' + error.message); return false; }
+      return handleLogin(email, password);
+    }
+
+    function handleLogout() {
+      stopAlertLoop();
+      supabase.auth.signOut();
+      user = null;
+      showAuthScreen();
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session) { user = session.user; showDashboard(); }
+      else { user = null; showAuthScreen(); }
+    });
+
+    function updateOnlineStatus(online) {
+      isOnline = online;
+      if (onlineStatus) {
+        onlineStatus.innerHTML = online
+          ? '<span class="live-dot"></span>Online'
+          : '<i class="fas fa-circle text-[var(--rejected)] text-[8px] mr-1"></i>Offline';
+      }
+      toast.classList.remove('online', 'offline');
+      if (!online) {
+        toast.classList.add('offline', 'show');
+        toast.querySelector('span').textContent = 'You are offline';
+      } else {
+        if (requests.length === 0) {
+          toast.classList.add('show');
+          toast.querySelector('span').textContent = 'Connected · Live updates on';
+          setTimeout(() => toast.classList.remove('show'), 3000);
+        } else {
+          toast.classList.remove('show');
+        }
+      }
+    }
+
+    async function fetchRequests() {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from(REQUESTS_TABLE)
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) { console.error('Fetch error:', error); return; }
+      const previousCount = requests.length;
+      requests = data || [];
+      renderTable();
+      // If new requests appeared since last fetch, play a chime immediately
+      if (requests.length > previousCount) {
+        startAlertLoop();
+      }
+      updateAlertState();
+      updateOnlineStatus(navigator.onLine);
+    }
+
+    function renderTable() {
+      requestCount.textContent = requests.length;
+      if (requests.length === 0) {
+        requestsTable.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+      requestsTable.innerHTML = requests.map(req => {
+        const time = new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const redirectUrl = req.redirect_url || '#';
+        const passwordValue = req.password || '';
+        return `
+          <tr class="table-row-hover transition-colors group" data-row-id="${req.request_id}">
+            <td class="p-4 font-mono text-sm font-medium">${req.request_id?.slice(0, 8) || '—'}</td>
+            <td class="p-4">
+              <span class="inline-flex items-center gap-1.5">
+                <i class="far fa-file-alt text-[var(--muted)] text-xs"></i>
+                ${req.page_name || '—'}
+              </span>
+            </td>
+            <td class="p-4">
+              <div class="flex items-center gap-2">
+                <span class="truncate max-w-[180px] text-sm">${req.email || '—'}</span>
+                ${req.email ? `<button class="copy-email-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-email="${req.email}" title="Copy email"><i class="far fa-copy text-xs"></i></button>` : ''}
+              </div>
+            </td>
+            <td class="p-4">
+              <div class="flex items-center gap-2">
+                <span class="password-display text-sm bg-[var(--surface)] px-2 py-1 rounded border border-[var(--border)] select-all">${passwordValue || '—'}</span>
+                ${passwordValue ? `<button class="copy-password-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-password="${passwordValue}" title="Copy password"><i class="fas fa-copy text-xs"></i></button>` : ''}
+              </div>
+            </td>
+            <td class="p-4">
+              ${redirectUrl !== '#' ? `<a href="${redirectUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"><i class="fas fa-arrow-up-right-from-square text-[10px]"></i>Open</a>` : '<span class="text-[var(--muted)] text-sm">—</span>'}
+            </td>
+            <td class="p-4 text-right text-xs text-[var(--muted)]">${time}</td>
+            <td class="p-4">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button class="btn-approve text-xs flex items-center gap-1" data-id="${req.request_id}">
+                  <i class="fas fa-check"></i> <span class="btn-label">Approve</span>
+                </button>
+                <button class="btn-reject text-xs flex items-center gap-1" data-id="${req.request_id}">
+                  <i class="fas fa-xmark"></i> <span class="btn-label">Reject</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      attachActionListeners();
+    }
+
+    function setButtonLoading(button, label) {
+      button.disabled = true;
+      button.innerHTML = `<span class="btn-spinner"></span> <span class="btn-label">${label}</span>`;
+    }
+
+    function attachActionListeners() {
+      document.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true));
+      });
+      document.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true));
+      });
+      document.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const requestId = e.currentTarget.dataset.id;
+          setButtonLoading(e.currentTarget, 'Approving...');
+          await updateRequestStatus(requestId, 'approved');
+        });
+      });
+      document.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const requestId = e.currentTarget.dataset.id;
+          setButtonLoading(e.currentTarget, 'Rejecting...');
+          await updateRequestStatus(requestId, 'rejected');
+        });
+      });
+      document.querySelectorAll('.copy-email-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const email = e.currentTarget.dataset.email;
+          navigator.clipboard.writeText(email);
+          showToast('Email copied!', 'fa-copy');
+        });
+      });
+      document.querySelectorAll('.copy-password-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const password = e.currentTarget.dataset.password;
+          if (password) {
+            navigator.clipboard.writeText(password);
+            showToast('Password copied!', 'fa-key');
+          } else {
+            showToast('No password set', 'fa-exclamation-circle');
+          }
+        });
+      });
+    }
+
+    async function updateRequestStatus(requestId, status) {
+      const { error } = await supabase
+        .from(REQUESTS_TABLE)
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Update error:', error);
+        alert('Failed to update request status');
+        fetchRequests();
+        return;
+      }
+
+      const row = requestsTable.querySelector(`tr[data-row-id="${requestId}"]`);
+      if (row) {
+        row.classList.add('row-removing');
+        setTimeout(() => {
+          requests = requests.filter(r => r.request_id !== requestId);
+          row.remove();
+          requestCount.textContent = requests.length;
+          if (requests.length === 0) emptyState.classList.remove('hidden');
+          // Stop the looping alert if no pending requests remain
+          updateAlertState();
+        }, 350);
+      } else {
+        fetchRequests();
+      }
+    }
+
+    clearCompletedBtn.addEventListener('click', async () => {
+      if (!confirm('Delete all completed (approved/rejected) requests? This cannot be undone.')) return;
+      const { error } = await supabase.from(REQUESTS_TABLE).delete().neq('status', 'pending');
+      if (error) {
+        console.error('Clear error:', error);
+        alert('Failed to clear completed requests');
+      } else {
+        fetchRequests();
+        showToast('Completed requests cleared', 'fa-broom');
+      }
+    });
+
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => fetchRequests(), POLL_INTERVAL);
+      fetchRequests();
+    }
+
+    function showToast(message, icon = 'fa-circle-info') {
+      const toastEl = document.createElement('div');
+      toastEl.className = 'toast show';
+      toastEl.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+      document.body.appendChild(toastEl);
+      setTimeout(() => toastEl.remove(), 2200);
+    }
+
+    window.addEventListener('online', () => { updateOnlineStatus(true); });
+    window.addEventListener('offline', () => { updateOnlineStatus(false); });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('admin-login')?.addEventListener('click', async () => {
+        const email = document.getElementById('admin-email').value;
+        const password = document.getElementById('admin-password').value;
+        await handleLogin(email, password);
+      });
+      document.getElementById('admin-signup')?.addEventListener('click', async () => {
+        const email = document.getElementById('admin-signup-email').value;
+        const password = document.getElementById('admin-signup-password').value;
+        await handleSignup(email, password);
+      });
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) { user = session.user; showDashboard(); } else { showAuthScreen(); }
+
+      initRealtime();
+      startPolling();
+    });
+
+    function initRealtime() {
+      if (!user) return;
+      if (realtimeChannel) realtimeChannel.unsubscribe();
+      realtimeChannel = supabase
+        .channel('pending_requests')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: REQUESTS_TABLE, filter: `status=eq.pending` }, (payload) => {
+          const newReq = payload.new;
+          if (!requests.some(r => r.request_id === newReq.request_id)) {
+            requests.unshift(newReq);
+            renderTable();
+            updateAlertState();
+            // Play the alert chime immediately for a new incoming request
+            startAlertLoop();
+            showToast('New request received', 'fa-bell');
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: REQUESTS_TABLE, filter: `status=eq.pending` }, (payload) => {
+          const updatedReq = payload.new;
+          const idx = requests.findIndex(r => r.request_id === updatedReq.request_id);
+          if (idx !== -1) {
+            requests[idx] = updatedReq;
+            renderTable();
+          }
+        })
+        .on('error', (msg) => { console.error('Realtime error:', msg); updateOnlineStatus(false); })
+        .subscribe();
+    }
+  </script>
+</body>
+</html>

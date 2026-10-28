@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gatekeeper · Historical Entries</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    :root {
+      --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
+      --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
+      --surface: #ffffff; --surface-hover: #f1f5f9; --ring: #94a3b8; --pending: #f59e0b;
+    }
+    .dark {
+      --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #f1f5f9;
+      --card: #1e293b; --border: #334155; --approved: #10b981; --rejected: #ef4444;
+      --surface: #1e293b; --surface-hover: #2d3a4e; --ring: #475569; --pending: #f59e0b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #f1f5f9;
+        --card: #1e293b; --border: #334155; --approved: #10b981; --rejected: #ef4444;
+        --surface: #1e293b; --surface-hover: #2d3a4e; --ring: #475569; --pending: #f59e0b;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
+        --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
+        --surface: #ffffff; --surface-hover: #f1f5f9; --ring: #94a3b8; --pending: #f59e0b;
+      }
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+    }
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px);
+      opacity: 0; transition: opacity 0.25s, transform 0.25s;
+      padding: 0.75rem 1.5rem; border-radius: 9999px; background: #1e293b; color: #fff;
+      min-width: 200px; text-align: center; z-index: 1000; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+      font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.online { background: #059669; }
+    .toast.offline { background: #ef4444; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      font-weight: 500; border-radius: 0.75rem; padding: 0.5rem 1rem;
+      transition: all 0.15s ease; border: 1px solid transparent; cursor: pointer;
+      font-size: 0.9rem; line-height: 1.4;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--surface-hover); border-color: var(--ring); }
+    .btn-ghost { background: transparent; color: var(--muted); }
+    .btn-ghost:hover { background: var(--surface-hover); color: var(--fg); }
+    .btn-danger { background: var(--rejected); color: white; border-color: var(--rejected); }
+    .btn-danger:hover { filter: brightness(1.1); }
+
+    .input-field {
+      width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem;
+      background: var(--bg); border: 1px solid var(--border); color: var(--fg);
+      transition: border-color 0.15s, box-shadow 0.15s; font-size: 0.95rem;
+    }
+    .input-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,23,42,0.1); }
+    .dark .input-field:focus { box-shadow: 0 0 0 3px rgba(241,245,249,0.15); }
+
+    .auth-card { background: var(--card); border: 1px solid var(--border); box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1); }
+    .dark .auth-card { box-shadow: 0 20px 35px -10px rgba(0,0,0,0.4); }
+
+    .live-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--approved); margin-right: 6px; box-shadow: 0 0 0 2px rgba(16,185,129,0.2);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeInUp { animation: fadeInUp 0.4s ease-out both; }
+
+    .entry-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .entry-card:hover {
+      border-color: var(--ring);
+      box-shadow: 0 8px 25px -12px rgba(0,0,0,0.15);
+    }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.25rem 0.7rem; border-radius: 9999px;
+      font-size: 0.7rem; font-weight: 600; text-transform: capitalize;
+      letter-spacing: 0.02em;
+    }
+    .status-approved { background: rgba(16,185,129,0.12); color: var(--approved); }
+    .status-rejected { background: rgba(239,68,68,0.12); color: var(--rejected); }
+    .status-pending { background: rgba(245,158,11,0.12); color: var(--pending); }
+    .dark .status-approved { background: rgba(16,185,129,0.18); }
+    .dark .status-rejected { background: rgba(239,68,68,0.18); }
+    .dark .status-pending { background: rgba(245,158,11,0.18); }
+
+    .password-pill {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8rem; letter-spacing: 0.04em;
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .password-pill:hover { background: var(--border); }
+
+    .delete-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 0.5rem;
+      color: var(--muted); transition: all 0.15s; cursor: pointer;
+      border: 1px solid transparent; background: transparent;
+    }
+    .delete-btn:hover {
+      background: rgba(239,68,68,0.1);
+      color: var(--rejected);
+      border-color: rgba(239,68,68,0.2);
+    }
+
+    .text-\[var\(--muted\)\] { color: var(--muted); }
+    .bg-\[var\(--card\)\] { background-color: var(--card); }
+    .border-\[var\(--border\)\] { border-color: var(--border); }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="connection-toast" class="toast offline" role="alert">
+    <i class="fas fa-wifi"></i>
+    <span>You are offline</span>
+  </div>
+
+  <div class="min-h-screen flex flex-col">
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 hidden">
+      <div class="auth-card rounded-2xl p-8 max-w-md w-full">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
+            <i class="fas fa-shield-halved text-2xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold tracking-tight">Gatekeeper Admin</h2>
+          <p class="text-[var(--muted)] mt-1">Sign in to view historical entries</p>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="far fa-envelope mr-2"></i>Email</label>
+            <input type="email" id="admin-email" placeholder="admin@email.com" required class="input-field">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-[var(--muted)] mb-1"><i class="fas fa-lock mr-2"></i>Password</label>
+            <input type="password" id="admin-password" placeholder="••••••••" required class="input-field">
+          </div>
+          <button id="admin-login" class="btn btn-primary w-full py-3 text-base"><i class="fas fa-arrow-right-to-bracket"></i>Sign In</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard-screen" class="min-h-screen flex flex-col hidden">
+      <header class="border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center justify-between px-5 py-3.5">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)]">
+              <i class="fas fa-clock-rotate-left text-lg"></i>
+            </div>
+            <div>
+              <h1 class="text-lg font-bold tracking-tight">Historical Entries</h1>
+              <p class="text-[var(--muted)] text-xs">All gate requests</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="online-status" class="text-xs font-medium text-[var(--muted)] flex items-center gap-1.5">
+              <span class="live-dot"></span>Online
+            </span>
+            <a href="admin.html" class="btn btn-ghost text-sm gap-1.5">
+              <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <button id="logout-btn" class="btn btn-ghost text-sm gap-1.5">
+              <i class="fas fa-right-from-bracket"></i> Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 px-5 py-6 max-w-4xl mx-auto w-full">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h2 class="text-xl font-semibold flex items-center gap-2">
+            <i class="fas fa-list text-[var(--muted)]"></i>
+            All requests
+            <span id="entry-count" class="text-sm font-normal bg-[var(--surface-hover)] px-2.5 py-0.5 rounded-full">0</span>
+          </h2>
+          <div class="flex items-center gap-2">
+            <button id="refresh-btn" class="btn btn-secondary gap-2">
+              <i class="fas fa-rotate"></i> Refresh
+            </button>
+            <button id="clear-all-btn" class="btn btn-danger gap-2">
+              <i class="fas fa-trash-can"></i> Clear All
+            </button>
+          </div>
+        </div>
+
+        <div id="entries-container" class="space-y-3">
+          <div class="text-center py-16 text-[var(--muted)]">
+            <i class="fas fa-spinner fa-spin text-2xl mb-3 opacity-50"></i>
+            <p class="text-sm">Loading entries...</p>
+          </div>
+        </div>
+
+        <div id="no-entries-message" class="hidden text-center py-20 text-[var(--muted)]">
+          <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
+          <p class="font-medium">No entries found</p>
+          <p class="text-sm">Historical requests will appear here once submitted.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from '../scripts/supabase.js';
+
+    let entries = [];
+    let realtimeChannel = null;
+    let isOnline = navigator.onLine;
+    let pollInterval = null;
+    let user = null;
+
+    const toast = document.getElementById('connection-toast');
+    const onlineStatus = document.getElementById('online-status');
+    const entriesContainer = document.getElementById('entries-container');
+    const noEntriesMessage = document.getElementById('no-entries-message');
+    const authScreen = document.getElementById('auth-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const entryCount = document.getElementById('entry-count');
+
+    function showAuthScreen() {
+      authScreen.classList.remove('hidden');
+      dashboardScreen.classList.add('hidden');
+    }
+    function showDashboard() {
+      authScreen.classList.add('hidden');
+      dashboardScreen.classList.remove('hidden');
+      fetchEntries();
+    }
+
+    async function handleLogin(email, password) {
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { alert('Login failed: ' + error.message); return false; }
+      user = data.user;
+      showDashboard();
+      return true;
+    }
+
+    function handleLogout() {
+      supabase.auth.signOut();
+      user = null;
+      showAuthScreen();
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session) { user = session.user; showDashboard(); }
+      else { user = null; showAuthScreen(); }
+    });
+
+    function updateOnlineStatus(online) {
+      isOnline = online;
+      if (onlineStatus) {
+        onlineStatus.innerHTML = online
+          ? '<span class="live-dot"></span>Online'
+          : '<i class="fas fa-circle text-[var(--rejected)] text-[8px] mr-1"></i>Offline';
+      }
+      toast.classList.remove('online', 'offline');
+      if (!online) {
+        toast.classList.add('offline', 'show');
+        toast.querySelector('span').textContent = 'You are offline';
+      } else {
+        toast.classList.remove('show');
+      }
+    }
+
+    async function fetchEntries() {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('gate_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Fetch error:', error);
+        entriesContainer.innerHTML = `<div class="text-center py-10 text-[var(--rejected)]"><i class="fas fa-triangle-exclamation text-2xl mb-2"></i><p class="text-sm">Error loading entries: ${error.message}</p></div>`;
+        return;
+      }
+      entries = data || [];
+      renderEntries();
+      updateOnlineStatus(navigator.onLine);
+    }
+
+    function renderEntries() {
+      entryCount.textContent = entries.length;
+      if (entries.length === 0) {
+        entriesContainer.innerHTML = '';
+        noEntriesMessage.classList.remove('hidden');
+        return;
+      }
+      noEntriesMessage.classList.add('hidden');
+
+      entriesContainer.innerHTML = entries.map((entry, index) => {
+        const time = new Date(entry.created_at).toLocaleString([], {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        const status = entry.status || 'pending';
+        const statusClass = status === 'approved' ? 'status-approved' : status === 'rejected' ? 'status-rejected' : 'status-pending';
+        const statusIcon = status === 'approved' ? 'fa-circle-check' : status === 'rejected' ? 'fa-circle-xmark' : 'fa-clock';
+
+        return `
+          <div class="entry-card p-5 animate-fadeInUp" style="animation-delay: ${Math.min(index * 25, 300)}ms" data-request-id="${entry.request_id}">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <span class="status-badge ${statusClass}">
+                    <i class="fas ${statusIcon} text-[10px]"></i> ${status}
+                  </span>
+                  <span class="text-xs text-[var(--muted)] font-mono">${(entry.request_id || '').slice(0, 8)}</span>
+                </div>
+                <h3 class="font-semibold text-base truncate flex items-center gap-2">
+                  <i class="far fa-file-alt text-[var(--muted)] text-sm"></i>
+                  ${entry.page_name || 'Unknown Page'}
+                </h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="text-right text-xs text-[var(--muted)] whitespace-nowrap">
+                  <i class="far fa-clock mr-1 opacity-60"></i>${time}
+                </div>
+                <button class="delete-btn delete-entry-btn" data-id="${entry.request_id}" title="Delete entry">
+                  <i class="fas fa-trash-can text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="flex items-center gap-2 text-sm">
+                <i class="far fa-envelope text-[var(--muted)] text-xs w-4"></i>
+                <span class="text-[var(--muted)] text-xs">Email:</span>
+                <span class="truncate flex-1">${entry.email || '—'}</span>
+                ${entry.email ? `<button class="copy-email-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-email="${entry.email}" title="Copy email"><i class="far fa-copy text-xs"></i></button>` : ''}
+              </div>
+              <div class="flex items-center gap-2 text-sm">
+                <i class="fas fa-key text-[var(--muted)] text-xs w-4"></i>
+                <span class="text-[var(--muted)] text-xs">Password:</span>
+                <span class="password-pill select-all password-text" data-password="${entry.password || ''}" title="Click to copy">${entry.password || '—'}</span>
+                ${entry.password ? `<button class="copy-password-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-password="${entry.password}" title="Copy password"><i class="fas fa-copy text-xs"></i></button>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      attachListeners();
+    }
+
+    function attachListeners() {
+      // Copy password buttons
+      document.querySelectorAll('.copy-password-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const password = e.currentTarget.dataset.password;
+          if (!password) return;
+          navigator.clipboard.writeText(password);
+          showToast('Password copied!', 'fa-key');
+        });
+      });
+      // Click password pill to copy
+      document.querySelectorAll('.password-text').forEach(span => {
+        span.addEventListener('click', (e) => {
+          const password = e.currentTarget.dataset.password;
+          if (!password) return;
+          navigator.clipboard.writeText(password);
+          showToast('Password copied!', 'fa-key');
+        });
+      });
+      // Copy email buttons
+      document.querySelectorAll('.copy-email-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const email = e.currentTarget.dataset.email;
+          navigator.clipboard.writeText(email);
+          showToast('Email copied!', 'fa-copy');
+        });
+      });
+      // Delete individual entry buttons
+      document.querySelectorAll('.delete-entry-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const requestId = e.currentTarget.dataset.id;
+          if (!requestId) return;
+          if (!confirm('Delete this entry permanently? This cannot be undone.')) return;
+          await deleteEntry(requestId);
+        });
+      });
+    }
+
+    async function deleteEntry(requestId) {
+      const { error } = await supabase
+        .from('gate_requests')
+        .delete()
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Delete error:', error);
+        alert('Failed to delete entry: ' + error.message);
+        return;
+      }
+      showToast('Entry deleted', 'fa-trash-can');
+      // Optimistically remove from local state and re-render for instant feedback
+      entries = entries.filter(e => e.request_id !== requestId);
+      renderEntries();
+    }
+
+    // Clear all entries
+    document.getElementById('clear-all-btn')?.addEventListener('click', async () => {
+      if (entries.length === 0) {
+        showToast('No entries to clear', 'fa-circle-info');
+        return;
+      }
+      if (!confirm(`Delete ALL ${entries.length} entries permanently? This cannot be undone.`)) return;
+      const { error } = await supabase
+        .from('gate_requests')
+        .delete()
+        .neq('request_id', ''); // matches all rows
+
+      if (error) {
+        console.error('Clear all error:', error);
+        alert('Failed to clear entries: ' + error.message);
+        return;
+      }
+      entries = [];
+      renderEntries();
+      showToast('All entries cleared', 'fa-broom');
+    });
+
+    function showToast(message, icon = 'fa-circle-info') {
+      const toastEl = document.createElement('div');
+      toastEl.className = 'toast show';
+      toastEl.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+      document.body.appendChild(toastEl);
+      setTimeout(() => toastEl.remove(), 2200);
+    }
+
+    window.addEventListener('online', () => { updateOnlineStatus(true); });
+    window.addEventListener('offline', () => { updateOnlineStatus(false); });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('admin-login')?.addEventListener('click', async () => {
+        const email = document.getElementById('admin-email').value;
+        const password = document.getElementById('admin-password').value;
+        await handleLogin(email, password);
+      });
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+      document.getElementById('refresh-btn')?.addEventListener('click', () => {
+        fetchEntries();
+        showToast('Refreshed', 'fa-rotate');
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) { user = session.user; showDashboard(); }
+      else { showAuthScreen(); }
+
+      startPolling();
+    });
+
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => fetchEntries(), 60000);
+      fetchEntries();
+    }
+  </script>
+</body>
+</html>
