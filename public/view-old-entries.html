@@ -89,15 +89,24 @@
     }
     .animate-fadeInUp { animation: fadeInUp 0.4s ease-out both; }
 
+    /* —— improved card grid — full width, responsive —— */
     .entry-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 1rem;
       transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     .entry-card:hover {
       border-color: var(--ring);
       box-shadow: 0 8px 25px -12px rgba(0,0,0,0.15);
+    }
+    .entry-card .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     .status-badge {
@@ -130,6 +139,7 @@
       width: 2rem; height: 2rem; border-radius: 0.5rem;
       color: var(--muted); transition: all 0.15s; cursor: pointer;
       border: 1px solid transparent; background: transparent;
+      flex-shrink: 0;
     }
     .delete-btn:hover {
       background: rgba(239,68,68,0.1);
@@ -140,6 +150,46 @@
     .text-\[var\(--muted\)\] { color: var(--muted); }
     .bg-\[var\(--card\)\] { background-color: var(--card); }
     .border-\[var\(--border\)\] { border-color: var(--border); }
+
+    /* filter chips */
+    .filter-chip {
+      padding: 0.3rem 0.9rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-chip:hover {
+      background: var(--surface-hover);
+      border-color: var(--ring);
+    }
+    .filter-chip.active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    /* status toggle button on card */
+    .status-toggle-btn {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .status-toggle-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--ring);
+      color: var(--fg);
+    }
   </style>
 </head>
 <body class="antialiased">
@@ -200,16 +250,21 @@
         </div>
       </header>
 
-      <main class="flex-1 px-5 py-6 max-w-4xl mx-auto w-full">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <!-- main area now full width with max-w-7xl (wider) and consistent side padding -->
+      <main class="flex-1 w-full max-w-7xl mx-auto px-5 py-6">
+        <!-- top bar: title + actions + filter row -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <i class="fas fa-list text-[var(--muted)]"></i>
             All requests
             <span id="entry-count" class="text-sm font-normal bg-[var(--surface-hover)] px-2.5 py-0.5 rounded-full">0</span>
           </h2>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <button id="refresh-btn" class="btn btn-secondary gap-2">
               <i class="fas fa-rotate"></i> Refresh
+            </button>
+            <button id="copy-all-btn" class="btn btn-secondary gap-2" title="Copy all entries as text">
+              <i class="fas fa-copy"></i> Copy All
             </button>
             <button id="clear-all-btn" class="btn btn-danger gap-2">
               <i class="fas fa-trash-can"></i> Clear All
@@ -217,8 +272,18 @@
           </div>
         </div>
 
-        <div id="entries-container" class="space-y-3">
-          <div class="text-center py-16 text-[var(--muted)]">
+        <!-- filter chips row -->
+        <div class="flex flex-wrap items-center gap-2 mb-5">
+          <span class="text-xs font-medium text-[var(--muted)] mr-1">Filter:</span>
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="approved">Approved</button>
+          <button class="filter-chip" data-filter="pending">Pending</button>
+          <button class="filter-chip" data-filter="rejected">Rejected</button>
+        </div>
+
+        <!-- responsive grid: 1 col mobile, 2 cols md, 3 cols xl, full width with gap -->
+        <div id="entries-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+          <div class="text-center py-16 text-[var(--muted)] col-span-full">
             <i class="fas fa-spinner fa-spin text-2xl mb-3 opacity-50"></i>
             <p class="text-sm">Loading entries...</p>
           </div>
@@ -237,6 +302,8 @@
     import { supabase } from '/scripts/supabase.js';
 
     let entries = [];
+    let filteredEntries = [];
+    let currentFilter = 'all';
     let realtimeChannel = null;
     let isOnline = navigator.onLine;
     let pollInterval = null;
@@ -304,24 +371,38 @@
 
       if (error) {
         console.error('Fetch error:', error);
-        entriesContainer.innerHTML = `<div class="text-center py-10 text-[var(--rejected)]"><i class="fas fa-triangle-exclamation text-2xl mb-2"></i><p class="text-sm">Error loading entries: ${error.message}</p></div>`;
+        entriesContainer.innerHTML = `<div class="col-span-full text-center py-10 text-[var(--rejected)]"><i class="fas fa-triangle-exclamation text-2xl mb-2"></i><p class="text-sm">Error loading entries: ${error.message}</p></div>`;
         return;
       }
       entries = data || [];
-      renderEntries();
+      applyFilter();
       updateOnlineStatus(navigator.onLine);
     }
 
+    function applyFilter() {
+      if (currentFilter === 'all') {
+        filteredEntries = entries;
+      } else {
+        filteredEntries = entries.filter(e => (e.status || 'pending') === currentFilter);
+      }
+      renderEntries();
+    }
+
     function renderEntries() {
-      entryCount.textContent = entries.length;
-      if (entries.length === 0) {
+      entryCount.textContent = filteredEntries.length;
+      if (filteredEntries.length === 0) {
         entriesContainer.innerHTML = '';
+        entriesContainer.classList.add('hidden');
         noEntriesMessage.classList.remove('hidden');
+        // update message for filter
+        const filterLabel = currentFilter === 'all' ? '' : ` (${currentFilter})`;
+        noEntriesMessage.querySelector('p:first-of-type').textContent = `No ${currentFilter === 'all' ? '' : currentFilter + ' '}entries found`;
         return;
       }
       noEntriesMessage.classList.add('hidden');
+      entriesContainer.classList.remove('hidden');
 
-      entriesContainer.innerHTML = entries.map((entry, index) => {
+      entriesContainer.innerHTML = filteredEntries.map((entry, index) => {
         const time = new Date(entry.created_at).toLocaleString([], {
           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
@@ -329,43 +410,47 @@
         const statusClass = status === 'approved' ? 'status-approved' : status === 'rejected' ? 'status-rejected' : 'status-pending';
         const statusIcon = status === 'approved' ? 'fa-circle-check' : status === 'rejected' ? 'fa-circle-xmark' : 'fa-clock';
 
+        // determine next status for toggle (cycle: pending → approved → rejected → pending)
+        const nextStatus = status === 'pending' ? 'approved' : status === 'approved' ? 'rejected' : 'pending';
+        const nextLabel = nextStatus === 'approved' ? '✓ Approve' : nextStatus === 'rejected' ? '✗ Reject' : '↺ Pending';
+
         return `
           <div class="entry-card p-5 animate-fadeInUp" style="animation-delay: ${Math.min(index * 25, 300)}ms" data-request-id="${entry.request_id}">
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <div class="card-content">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="status-badge ${statusClass}">
                     <i class="fas ${statusIcon} text-[10px]"></i> ${status}
                   </span>
                   <span class="text-xs text-[var(--muted)] font-mono">${(entry.request_id || '').slice(0, 8)}</span>
                 </div>
-                <h3 class="font-semibold text-base truncate flex items-center gap-2">
-                  <i class="far fa-file-alt text-[var(--muted)] text-sm"></i>
-                  ${entry.page_name || 'Unknown Page'}
-                </h3>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button class="status-toggle-btn" data-id="${entry.request_id}" data-next="${nextStatus}" title="Cycle status to ${nextStatus}">${nextLabel}</button>
+                  <button class="delete-btn delete-entry-btn" data-id="${entry.request_id}" title="Delete entry">
+                    <i class="fas fa-trash-can text-sm"></i>
+                  </button>
+                </div>
               </div>
-              <div class="flex items-center gap-2">
-                <div class="text-right text-xs text-[var(--muted)] whitespace-nowrap">
+              <h3 class="font-semibold text-base truncate flex items-center gap-2 mb-2">
+                <i class="far fa-file-alt text-[var(--muted)] text-sm"></i>
+                ${entry.page_name || 'Unknown Page'}
+              </h3>
+              <div class="mt-auto space-y-2 text-sm">
+                <div class="flex items-center gap-2">
+                  <i class="far fa-envelope text-[var(--muted)] text-xs w-4 shrink-0"></i>
+                  <span class="text-[var(--muted)] text-xs shrink-0">Email:</span>
+                  <span class="truncate flex-1 min-w-0">${entry.email || '—'}</span>
+                  ${entry.email ? `<button class="copy-email-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors shrink-0" data-email="${entry.email}" title="Copy email"><i class="far fa-copy text-xs"></i></button>` : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-key text-[var(--muted)] text-xs w-4 shrink-0"></i>
+                  <span class="text-[var(--muted)] text-xs shrink-0">Password:</span>
+                  <span class="password-pill select-all password-text truncate max-w-[120px]" data-password="${entry.password || ''}" title="Click to copy">${entry.password || '—'}</span>
+                  ${entry.password ? `<button class="copy-password-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors shrink-0" data-password="${entry.password}" title="Copy password"><i class="fas fa-copy text-xs"></i></button>` : ''}
+                </div>
+                <div class="text-right text-xs text-[var(--muted)] pt-1 border-t border-[var(--border)] mt-2">
                   <i class="far fa-clock mr-1 opacity-60"></i>${time}
                 </div>
-                <button class="delete-btn delete-entry-btn" data-id="${entry.request_id}" title="Delete entry">
-                  <i class="fas fa-trash-can text-sm"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="flex items-center gap-2 text-sm">
-                <i class="far fa-envelope text-[var(--muted)] text-xs w-4"></i>
-                <span class="text-[var(--muted)] text-xs">Email:</span>
-                <span class="truncate flex-1">${entry.email || '—'}</span>
-                ${entry.email ? `<button class="copy-email-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-email="${entry.email}" title="Copy email"><i class="far fa-copy text-xs"></i></button>` : ''}
-              </div>
-              <div class="flex items-center gap-2 text-sm">
-                <i class="fas fa-key text-[var(--muted)] text-xs w-4"></i>
-                <span class="text-[var(--muted)] text-xs">Password:</span>
-                <span class="password-pill select-all password-text" data-password="${entry.password || ''}" title="Click to copy">${entry.password || '—'}</span>
-                ${entry.password ? `<button class="copy-password-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-password="${entry.password}" title="Copy password"><i class="fas fa-copy text-xs"></i></button>` : ''}
               </div>
             </div>
           </div>
@@ -379,6 +464,7 @@
       // Copy password buttons
       document.querySelectorAll('.copy-password-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const password = e.currentTarget.dataset.password;
           if (!password) return;
           navigator.clipboard.writeText(password);
@@ -388,6 +474,7 @@
       // Click password pill to copy
       document.querySelectorAll('.password-text').forEach(span => {
         span.addEventListener('click', (e) => {
+          e.stopPropagation();
           const password = e.currentTarget.dataset.password;
           if (!password) return;
           navigator.clipboard.writeText(password);
@@ -397,6 +484,7 @@
       // Copy email buttons
       document.querySelectorAll('.copy-email-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const email = e.currentTarget.dataset.email;
           navigator.clipboard.writeText(email);
           showToast('Email copied!', 'fa-copy');
@@ -405,10 +493,21 @@
       // Delete individual entry buttons
       document.querySelectorAll('.delete-entry-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
           const requestId = e.currentTarget.dataset.id;
           if (!requestId) return;
           if (!confirm('Delete this entry permanently? This cannot be undone.')) return;
           await deleteEntry(requestId);
+        });
+      });
+      // Status toggle buttons (cycle status)
+      document.querySelectorAll('.status-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const requestId = e.currentTarget.dataset.id;
+          const nextStatus = e.currentTarget.dataset.next;
+          if (!requestId) return;
+          await updateEntryStatus(requestId, nextStatus);
         });
       });
     }
@@ -425,9 +524,26 @@
         return;
       }
       showToast('Entry deleted', 'fa-trash-can');
-      // Optimistically remove from local state and re-render for instant feedback
       entries = entries.filter(e => e.request_id !== requestId);
-      renderEntries();
+      applyFilter();
+    }
+
+    async function updateEntryStatus(requestId, newStatus) {
+      const { error } = await supabase
+        .from('gate_requests')
+        .update({ status: newStatus })
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Update status error:', error);
+        alert('Failed to update status: ' + error.message);
+        return;
+      }
+      // update local state
+      const entry = entries.find(e => e.request_id === requestId);
+      if (entry) entry.status = newStatus;
+      applyFilter();
+      showToast(`Status → ${newStatus}`, 'fa-flag');
     }
 
     // Clear all entries
@@ -448,8 +564,21 @@
         return;
       }
       entries = [];
-      renderEntries();
+      applyFilter();
       showToast('All entries cleared', 'fa-broom');
+    });
+
+    // Copy all entries as text
+    document.getElementById('copy-all-btn')?.addEventListener('click', () => {
+      if (filteredEntries.length === 0) {
+        showToast('No entries to copy', 'fa-circle-info');
+        return;
+      }
+      const text = filteredEntries.map(e => {
+        return `ID: ${e.request_id}\nPage: ${e.page_name}\nEmail: ${e.email}\nPassword: ${e.password}\nStatus: ${e.status || 'pending'}\nTime: ${new Date(e.created_at).toLocaleString()}\n---`;
+      }).join('\n\n');
+      navigator.clipboard.writeText(text);
+      showToast(`Copied ${filteredEntries.length} entries`, 'fa-copy');
     });
 
     function showToast(message, icon = 'fa-circle-info') {
@@ -473,6 +602,16 @@
       document.getElementById('refresh-btn')?.addEventListener('click', () => {
         fetchEntries();
         showToast('Refreshed', 'fa-rotate');
+      });
+
+      // filter chips
+      document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          currentFilter = chip.dataset.filter;
+          applyFilter();
+        });
       });
 
       const { data: { session } } = await supabase.auth.getSession();
