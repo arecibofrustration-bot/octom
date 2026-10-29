@@ -89,7 +89,7 @@
     }
     .animate-fadeInUp { animation: fadeInUp 0.4s ease-out both; }
 
-    /* —— improved card grid — full width, responsive —— */
+    /* Improved card grid — wider and more responsive */
     .entry-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -172,24 +172,6 @@
       color: var(--bg);
       border-color: var(--accent);
     }
-
-    /* status toggle button on card */
-    .status-toggle-btn {
-      font-size: 0.65rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 9999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .status-toggle-btn:hover {
-      background: var(--surface-hover);
-      border-color: var(--ring);
-      color: var(--fg);
-    }
   </style>
 </head>
 <body class="antialiased">
@@ -250,8 +232,8 @@
         </div>
       </header>
 
-      <!-- main area now full width with max-w-7xl (wider) and consistent side padding -->
-      <main class="flex-1 w-full max-w-7xl mx-auto px-5 py-6">
+      <!-- Main content area: Max width increased for 4 columns -->
+      <main class="flex-1 w-full max-w-[1600px] mx-auto px-5 py-6">
         <!-- top bar: title + actions + filter row -->
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 class="text-xl font-semibold flex items-center gap-2">
@@ -281,8 +263,8 @@
           <button class="filter-chip" data-filter="rejected">Rejected</button>
         </div>
 
-        <!-- responsive grid: 1 col mobile, 2 cols md, 3 cols xl, full width with gap -->
-        <div id="entries-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+        <!-- responsive grid: 1 col mobile, 2 cols md, 3 cols xl, 4 cols 2xl -->
+        <div id="entries-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 w-full">
           <div class="text-center py-16 text-[var(--muted)] col-span-full">
             <i class="fas fa-spinner fa-spin text-2xl mb-3 opacity-50"></i>
             <p class="text-sm">Loading entries...</p>
@@ -395,7 +377,6 @@
         entriesContainer.classList.add('hidden');
         noEntriesMessage.classList.remove('hidden');
         // update message for filter
-        const filterLabel = currentFilter === 'all' ? '' : ` (${currentFilter})`;
         noEntriesMessage.querySelector('p:first-of-type').textContent = `No ${currentFilter === 'all' ? '' : currentFilter + ' '}entries found`;
         return;
       }
@@ -410,10 +391,6 @@
         const statusClass = status === 'approved' ? 'status-approved' : status === 'rejected' ? 'status-rejected' : 'status-pending';
         const statusIcon = status === 'approved' ? 'fa-circle-check' : status === 'rejected' ? 'fa-circle-xmark' : 'fa-clock';
 
-        // determine next status for toggle (cycle: pending → approved → rejected → pending)
-        const nextStatus = status === 'pending' ? 'approved' : status === 'approved' ? 'rejected' : 'pending';
-        const nextLabel = nextStatus === 'approved' ? '✓ Approve' : nextStatus === 'rejected' ? '✗ Reject' : '↺ Pending';
-
         return `
           <div class="entry-card p-5 animate-fadeInUp" style="animation-delay: ${Math.min(index * 25, 300)}ms" data-request-id="${entry.request_id}">
             <div class="card-content">
@@ -425,7 +402,6 @@
                   <span class="text-xs text-[var(--muted)] font-mono">${(entry.request_id || '').slice(0, 8)}</span>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
-                  <button class="status-toggle-btn" data-id="${entry.request_id}" data-next="${nextStatus}" title="Cycle status to ${nextStatus}">${nextLabel}</button>
                   <button class="delete-btn delete-entry-btn" data-id="${entry.request_id}" title="Delete entry">
                     <i class="fas fa-trash-can text-sm"></i>
                   </button>
@@ -500,16 +476,6 @@
           await deleteEntry(requestId);
         });
       });
-      // Status toggle buttons (cycle status)
-      document.querySelectorAll('.status-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const requestId = e.currentTarget.dataset.id;
-          const nextStatus = e.currentTarget.dataset.next;
-          if (!requestId) return;
-          await updateEntryStatus(requestId, nextStatus);
-        });
-      });
     }
 
     async function deleteEntry(requestId) {
@@ -526,24 +492,6 @@
       showToast('Entry deleted', 'fa-trash-can');
       entries = entries.filter(e => e.request_id !== requestId);
       applyFilter();
-    }
-
-    async function updateEntryStatus(requestId, newStatus) {
-      const { error } = await supabase
-        .from('gate_requests')
-        .update({ status: newStatus })
-        .eq('request_id', requestId);
-
-      if (error) {
-        console.error('Update status error:', error);
-        alert('Failed to update status: ' + error.message);
-        return;
-      }
-      // update local state
-      const entry = entries.find(e => e.request_id === requestId);
-      if (entry) entry.status = newStatus;
-      applyFilter();
-      showToast(`Status → ${newStatus}`, 'fa-flag');
     }
 
     // Clear all entries
