@@ -97,9 +97,6 @@
     .auth-card { background: var(--card); border: 1px solid var(--border); box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1); }
     .dark .auth-card { box-shadow: 0 20px 35px -10px rgba(0,0,0,0.4); }
 
-    .toggle-link { color: var(--muted); text-decoration: underline; cursor: pointer; }
-    .toggle-link:hover { color: var(--accent); }
-
     .live-dot {
       display: inline-block; width: 8px; height: 8px; border-radius: 50%;
       background: var(--approved); margin-right: 6px; box-shadow: 0 0 0 2px rgba(16,185,129,0.2);
@@ -149,7 +146,6 @@
   <div class="min-h-screen flex flex-col">
     <!-- Auth Screen -->
     <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 hidden">
-      <!-- Improved auth card with better internal spacing -->
       <div class="auth-card rounded-2xl p-8 max-w-md w-full">
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
@@ -170,21 +166,6 @@
             <input type="password" id="admin-password" placeholder="••••••••" required class="input-field">
           </div>
           <button id="admin-login" class="btn btn-primary w-full py-3 text-base mt-2"><i class="fas fa-arrow-right-to-bracket"></i>Sign In</button>
-          <p class="text-center text-sm text-[var(--muted)] pt-2">No account? <span id="show-signup" class="toggle-link font-medium">Create one</span></p>
-        </div>
-
-        <!-- Signup Form -->
-        <div id="signup-form" class="space-y-5 hidden">
-          <div class="space-y-1.5">
-            <label class="block text-sm font-medium text-[var(--muted)]"><i class="far fa-envelope mr-2"></i>Email</label>
-            <input type="email" id="admin-signup-email" placeholder="admin@email.com" required class="input-field">
-          </div>
-          <div class="space-y-1.5">
-            <label class="block text-sm font-medium text-[var(--muted)]"><i class="fas fa-lock mr-2"></i>Password</label>
-            <input type="password" id="admin-signup-password" placeholder="••••••••" required class="input-field">
-          </div>
-          <button id="admin-signup" class="btn btn-primary w-full py-3 text-base mt-2"><i class="fas fa-user-plus"></i>Create Account</button>
-          <p class="text-center text-sm text-[var(--muted)] pt-2">Already have an account? <span id="show-login" class="toggle-link font-medium">Sign in</span></p>
         </div>
       </div>
     </div>
@@ -297,19 +278,6 @@
     const alertBanner = document.getElementById('alert-banner');
     const muteBtn = document.getElementById('mute-btn');
 
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    document.getElementById('show-signup')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      loginForm.classList.add('hidden');
-      signupForm.classList.remove('hidden');
-    });
-    document.getElementById('show-login')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      signupForm.classList.add('hidden');
-      loginForm.classList.remove('hidden');
-    });
-
     // ---- Audio helpers ----
     function ensureAudioContext() {
       if (!audioCtx) {
@@ -325,13 +293,11 @@
       return audioCtx;
     }
 
-    // Play a two-note chime. Uses a short, pleasant alert pattern.
     function playAlertChime() {
       if (muted) return;
       const ctx = ensureAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-      // Two short notes: high then slightly higher (classic notification)
       const notes = [
         { freq: 880, start: now, dur: 0.14, gain: 0.18 },
         { freq: 1174.66, start: now + 0.16, dur: 0.18, gain: 0.18 },
@@ -355,12 +321,11 @@
 
     function startAlertLoop() {
       if (muted) {
-        // Don't loop if muted; but if the user unmutes, we re-evaluate
         stopAlertLoop();
         return;
       }
       ensureAudioContext();
-      if (alertInterval) return; // already running
+      if (alertInterval) return;
       playAlertChime();
       alertInterval = setInterval(() => {
         if (requests.length === 0) {
@@ -378,8 +343,6 @@
       }
     }
 
-    // Call whenever requests list changes.
-    // Starts the loop if there are pending requests, stops otherwise.
     function updateAlertState() {
       const hasPending = requests.length > 0;
       if (hasPending) {
@@ -391,7 +354,6 @@
       }
     }
 
-    // Mute/unmute toggle
     muteBtn?.addEventListener('click', () => {
       muted = !muted;
       muteBtn.innerHTML = muted
@@ -401,18 +363,15 @@
       if (muted) {
         stopAlertLoop();
       } else if (requests.length > 0) {
-        // Resume alert loop if there are pending requests
         startAlertLoop();
       }
     });
 
-    // Unlock audio on first user interaction (required by browsers)
     function unlockAudioOnce() {
       ensureAudioContext();
     }
     document.addEventListener('click', unlockAudioOnce, { once: true });
     document.addEventListener('keydown', unlockAudioOnce, { once: true });
-    // Also attempt to resume on visibility change (browsers may suspend background audio)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         ensureAudioContext();
@@ -438,12 +397,6 @@
       user = data.user;
       showDashboard();
       return true;
-    }
-
-    async function handleSignup(email, password) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) { alert('Signup failed: ' + error.message); return false; }
-      return handleLogin(email, password);
     }
 
     function handleLogout() {
@@ -492,7 +445,6 @@
       const previousCount = requests.length;
       requests = data || [];
       renderTable();
-      // If new requests appeared since last fetch, play a chime immediately
       if (requests.length > previousCount) {
         startAlertLoop();
       }
@@ -624,7 +576,6 @@
           row.remove();
           requestCount.textContent = requests.length;
           if (requests.length === 0) emptyState.classList.remove('hidden');
-          // Stop the looping alert if no pending requests remain
           updateAlertState();
         }, 350);
       } else {
@@ -667,11 +618,6 @@
         const password = document.getElementById('admin-password').value;
         await handleLogin(email, password);
       });
-      document.getElementById('admin-signup')?.addEventListener('click', async () => {
-        const email = document.getElementById('admin-signup-email').value;
-        const password = document.getElementById('admin-signup-password').value;
-        await handleSignup(email, password);
-      });
       document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -692,7 +638,6 @@
             requests.unshift(newReq);
             renderTable();
             updateAlertState();
-            // Play the alert chime immediately for a new incoming request
             startAlertLoop();
             showToast('New request received', 'fa-bell');
           }
