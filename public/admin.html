@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gatekeeper Admin · Dashboard (side preview)</title>
+  <title>Gatekeeper Admin · Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    /* ----- theme variables & base styles (same as original) ----- */
     :root {
       --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
       --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
@@ -105,6 +104,7 @@
     }
     @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
 
+    /* Pulsing alert indicator (for pending sound) */
     .alert-banner {
       display: flex; align-items: center; gap: 0.75rem;
       padding: 0.75rem 1rem; border-radius: 0.75rem; margin-bottom: 1rem;
@@ -135,131 +135,6 @@
     .text-\[var\(--muted\)\] { color: var(--muted); }
     .bg-\[var\(--card\)\] { background-color: var(--card); }
     .border-\[var\(--border\)\] { border-color: var(--border); }
-
-    /* ---- SIDE PREVIEW PANEL (new layout approach) ---- */
-    .dashboard-layout {
-      display: flex;
-      flex: 1;
-      width: 100%;
-      max-width: 1800px;
-      margin: 0 auto;
-      position: relative;
-    }
-    .main-content {
-      flex: 1 1 100%;
-      min-width: 0; /* prevent overflow */
-      transition: flex-basis 0.25s ease, max-width 0.25s ease;
-      padding: 1.5rem 1.25rem;
-    }
-    .preview-panel {
-      flex: 0 0 0; /* collapsed by default */
-      max-width: 0;
-      overflow: hidden;
-      transition: flex-basis 0.3s ease, max-width 0.3s ease;
-      border-left: 1px solid var(--border);
-      background: var(--card);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      z-index: 5;
-      box-shadow: -4px 0 15px -5px rgba(0,0,0,0.05);
-    }
-    .preview-panel.open {
-      flex: 1 1 45%;
-      max-width: 45%;
-      min-width: 380px;
-    }
-    @media (max-width: 1200px) {
-      .preview-panel.open {
-        flex: 1 1 50%;
-        max-width: 50%;
-        min-width: 340px;
-      }
-    }
-    @media (max-width: 900px) {
-      .dashboard-layout {
-        flex-direction: column;
-      }
-      .preview-panel {
-        flex: 0 0 0;
-        max-width: 100%;
-        border-left: none;
-        border-top: 1px solid var(--border);
-        transition: flex-basis 0.3s ease, max-height 0.3s ease;
-        max-height: 0;
-      }
-      .preview-panel.open {
-        flex: 1 1 auto;
-        max-height: 55vh;
-        min-height: 380px;
-      }
-    }
-
-    .preview-panel-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.6rem 0.75rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      flex-shrink: 0;
-      gap: 0.5rem;
-    }
-    .preview-panel-header .url-text {
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 0.75rem;
-      color: var(--muted);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      background: var(--bg);
-      padding: 0.2rem 0.6rem;
-      border-radius: 9999px;
-      border: 1px solid var(--border);
-      flex: 1;
-      min-width: 0;
-    }
-    .preview-panel-body {
-      flex: 1;
-      position: relative;
-      background: var(--bg);
-      overflow: hidden;
-      min-height: 200px;
-    }
-    .preview-panel-body iframe {
-      width: 100%; height: 100%; border: none; background: #fff;
-    }
-    .preview-panel-loading {
-      position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: var(--card); color: var(--muted); gap: 0.75rem;
-      font-size: 0.85rem;
-    }
-    .preview-panel-loading .spinner {
-      width: 1.75rem; height: 1.75rem;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: btn-spin 0.8s linear infinite;
-    }
-    .preview-panel-close {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 1.75rem; height: 1.75rem; border-radius: 50%;
-      background: transparent; border: none;
-      color: var(--muted); cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-    .preview-panel-close:hover {
-      background: var(--surface-hover);
-      color: var(--fg);
-    }
-    .preview-placeholder {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      height: 100%; color: var(--muted); padding: 1rem;
-      text-align: center; gap: 0.5rem;
-    }
-    .preview-placeholder i {
-      font-size: 2.5rem; opacity: 0.3;
-    }
   </style>
 </head>
 <body class="antialiased">
@@ -280,6 +155,7 @@
           <p class="text-[var(--muted)] mt-1 text-sm">Sign in to review login requests</p>
         </div>
 
+        <!-- Login Form -->
         <div id="login-form" class="space-y-5">
           <div class="space-y-1.5">
             <label class="block text-sm font-medium text-[var(--muted)]"><i class="far fa-envelope mr-2"></i>Email</label>
@@ -324,80 +200,52 @@
         </div>
       </header>
 
-      <!-- Main content area with side preview panel -->
-      <div class="dashboard-layout flex-1">
-        <!-- Main content (table etc.) -->
-        <div class="main-content" id="main-content">
-          <!-- Alert banner -->
-          <div id="alert-banner" class="alert-banner hidden">
-            <span class="alert-bell"><i class="fas fa-bell"></i></span>
-            <span><strong>Action required:</strong> You have pending requests waiting for review.</span>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <div class="flex items-center gap-3">
-              <h2 class="text-xl font-semibold flex items-center gap-2">
-                <i class="fas fa-list-check text-[var(--muted)]"></i>
-                Pending requests
-                <span id="request-count" class="text-sm font-normal bg-[var(--surface-hover)] px-2.5 py-0.5 rounded-full">0</span>
-              </h2>
-            </div>
-            <button id="clear-completed-btn" class="btn btn-secondary gap-2">
-              <i class="fas fa-broom"></i> Clear completed
-            </button>
-          </div>
-
-          <div class="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-[1100px]">
-                <thead>
-                  <tr class="border-b border-[var(--border)] text-left text-[var(--muted)] text-xs uppercase tracking-wider bg-[var(--surface)]/50">
-                    <th class="p-4 font-medium"><i class="fas fa-hashtag mr-1.5 opacity-60"></i>Request ID</th>
-                    <th class="p-4 font-medium"><i class="far fa-file mr-1.5 opacity-60"></i>Page</th>
-                    <th class="p-4 font-medium"><i class="far fa-envelope mr-1.5 opacity-60"></i>Email</th>
-                    <th class="p-4 font-medium"><i class="fas fa-key mr-1.5 opacity-60"></i>Password</th>
-                    <th class="p-4 font-medium"><i class="fas fa-link mr-1.5 opacity-60"></i>Redirect</th>
-                    <th class="p-4 font-medium"><i class="far fa-clock mr-1.5 opacity-60"></i>Time</th>
-                    <th class="p-4 font-medium"><i class="fas fa-bolt mr-1.5 opacity-60"></i>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="requests-table" class="divide-y divide-[var(--border)]">
-                </tbody>
-              </table>
-            </div>
-            <div id="empty-state" class="p-12 text-center text-[var(--muted)] hidden">
-              <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
-              <p class="font-medium">No pending requests</p>
-              <p class="text-sm">All caught up! Requests will appear here.</p>
-            </div>
-          </div>
+      <!-- Main content area: widened to max-w-[1600px] and full width with side padding -->
+      <main class="flex-1 w-full max-w-[1600px] mx-auto px-5 py-6">
+        <!-- Alert banner: shows while pending requests exist -->
+        <div id="alert-banner" class="alert-banner hidden">
+          <span class="alert-bell"><i class="fas fa-bell"></i></span>
+          <span><strong>Action required:</strong> You have pending requests waiting for review.</span>
         </div>
 
-        <!-- Side preview panel (always in DOM, toggled via class) -->
-        <div class="preview-panel" id="preview-panel">
-          <div class="preview-panel-header">
-            <span class="url-text" id="preview-url-display">No page loaded</span>
-            <button class="preview-panel-close" id="preview-close" title="Close preview">
-              <i class="fas fa-xmark"></i>
-            </button>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              <i class="fas fa-list-check text-[var(--muted)]"></i>
+              Pending requests
+              <span id="request-count" class="text-sm font-normal bg-[var(--surface-hover)] px-2.5 py-0.5 rounded-full">0</span>
+            </h2>
           </div>
-          <div class="preview-panel-body">
-            <!-- Placeholder shown when no iframe active -->
-            <div class="preview-placeholder" id="preview-placeholder">
-              <i class="fas fa-globe"></i>
-              <p class="text-sm font-medium">Click "Open" on a redirect link</p>
-              <p class="text-xs">The page will appear here</p>
-            </div>
-            <!-- Loading indicator -->
-            <div class="preview-panel-loading" id="preview-loading" style="display: none;">
-              <div class="spinner"></div>
-              <span>Loading page…</span>
-            </div>
-            <!-- Iframe -->
-            <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin allow-forms" src="about:blank" title="Redirect preview" style="display: none;"></iframe>
+          <button id="clear-completed-btn" class="btn btn-secondary gap-2">
+            <i class="fas fa-broom"></i> Clear completed
+          </button>
+        </div>
+
+        <div class="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1100px]">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-left text-[var(--muted)] text-xs uppercase tracking-wider bg-[var(--surface)]/50">
+                  <th class="p-4 font-medium"><i class="fas fa-hashtag mr-1.5 opacity-60"></i>Request ID</th>
+                  <th class="p-4 font-medium"><i class="far fa-file mr-1.5 opacity-60"></i>Page</th>
+                  <th class="p-4 font-medium"><i class="far fa-envelope mr-1.5 opacity-60"></i>Email</th>
+                  <th class="p-4 font-medium"><i class="fas fa-key mr-1.5 opacity-60"></i>Password</th>
+                  <th class="p-4 font-medium"><i class="fas fa-link mr-1.5 opacity-60"></i>Redirect</th>
+                  <th class="p-4 font-medium"><i class="far fa-clock mr-1.5 opacity-60"></i>Time</th>
+                  <th class="p-4 font-medium"><i class="fas fa-bolt mr-1.5 opacity-60"></i>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="requests-table" class="divide-y divide-[var(--border)]">
+              </tbody>
+            </table>
+          </div>
+          <div id="empty-state" class="p-12 text-center text-[var(--muted)] hidden">
+            <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
+            <p class="font-medium">No pending requests</p>
+            <p class="text-sm">All caught up! Requests will appear here.</p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   </div>
 
@@ -417,7 +265,7 @@
     let audioCtx = null;
     let alertInterval = null;
     let muted = false;
-    const ALERT_LOOP_MS = 2200;
+    const ALERT_LOOP_MS = 2200; // how often the alert chime repeats
 
     const toast = document.getElementById('connection-toast');
     const onlineStatus = document.getElementById('online-status');
@@ -429,14 +277,6 @@
     const emptyState = document.getElementById('empty-state');
     const alertBanner = document.getElementById('alert-banner');
     const muteBtn = document.getElementById('mute-btn');
-
-    // ---- Side preview elements ----
-    const previewPanel = document.getElementById('preview-panel');
-    const previewIframe = document.getElementById('preview-iframe');
-    const previewUrlDisplay = document.getElementById('preview-url-display');
-    const previewPlaceholder = document.getElementById('preview-placeholder');
-    const previewLoading = document.getElementById('preview-loading');
-    const previewCloseBtn = document.getElementById('preview-close');
 
     // ---- Audio helpers ----
     function ensureAudioContext() {
@@ -539,70 +379,11 @@
       }
     });
 
-    // ---- Side preview functions ----
-    function openPreview(url) {
-      if (!url || url === '#') return;
-      previewPanel.classList.add('open');
-      previewUrlDisplay.textContent = url;
-      previewLoading.style.display = 'flex';
-      previewPlaceholder.style.display = 'none';
-      previewIframe.style.display = 'none';
-    
-      let loaded = false;
-      const timeout = setTimeout(() => {
-        if (!loaded) {
-          previewLoading.style.display = 'none';
-          previewIframe.style.display = 'none';
-          previewPlaceholder.style.display = 'flex';
-          previewPlaceholder.innerHTML = `
-            <i class="fas fa-shield-halved"></i>
-            <p class="text-sm font-medium">This site blocks embedding</p>
-            <p class="text-xs px-4">The site sets <code>X-Frame-Options</code> or CSP, so it can't be previewed here.</p>
-            <button class="btn btn-secondary mt-2" onclick="window.open('${url}', '_blank', 'noopener')">
-              <i class="fas fa-external-link-alt"></i> Open in new tab
-            </button>`;
-        }
-      }, 4000);
-    
-      previewIframe.onload = () => {
-        if (previewIframe.src && previewIframe.src !== 'about:blank') {
-          loaded = true;
-          clearTimeout(timeout);
-          previewLoading.style.display = 'none';
-          previewIframe.style.display = 'block';
-          previewPlaceholder.style.display = 'none';
-        }
-      };
-      previewIframe.src = url;
-    }
-
-    function closePreview() {
-      previewPanel.classList.remove('open');
-      // Reset after animation
-      setTimeout(() => {
-        previewIframe.src = 'about:blank';
-        previewIframe.style.display = 'none';
-        previewLoading.style.display = 'none';
-        previewPlaceholder.style.display = 'flex';
-        previewUrlDisplay.textContent = 'No page loaded';
-      }, 300);
-    }
-
-    // Close button
-    previewCloseBtn.addEventListener('click', closePreview);
-    // Also close when pressing Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && previewPanel.classList.contains('open')) {
-        closePreview();
-      }
-    });
-
     // ---- Auth ----
     function showAuthScreen() {
       authScreen.classList.remove('hidden');
       dashboardScreen.classList.add('hidden');
       stopAlertLoop();
-      closePreview();
     }
     function showDashboard() {
       authScreen.classList.add('hidden');
@@ -620,7 +401,6 @@
 
     function handleLogout() {
       stopAlertLoop();
-      closePreview();
       supabase.auth.signOut();
       user = null;
       showAuthScreen();
@@ -684,11 +464,6 @@
         const time = new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const redirectUrl = req.redirect_url || '#';
         const passwordValue = req.password || '';
-        // "Open" button triggers side preview
-        const redirectCell = redirectUrl !== '#'
-          ? `<button class="open-preview-btn inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline" data-url="${redirectUrl}" title="Preview in side panel"><i class="fas fa-arrow-up-right-from-square text-[10px]"></i> Open</button>`
-          : '<span class="text-[var(--muted)] text-sm">—</span>';
-
         return `
           <tr class="table-row-hover transition-colors group" data-row-id="${req.request_id}">
             <td class="p-4 font-mono text-sm font-medium">${req.request_id?.slice(0, 8) || '—'}</td>
@@ -710,7 +485,9 @@
                 ${passwordValue ? `<button class="copy-password-btn text-[var(--muted)] hover:text-[var(--accent)] transition-colors" data-password="${passwordValue}" title="Copy password"><i class="fas fa-copy text-xs"></i></button>` : ''}
               </div>
             </td>
-            <td class="p-4">${redirectCell}</td>
+            <td class="p-4">
+              ${redirectUrl !== '#' ? `<a href="${redirectUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"><i class="fas fa-arrow-up-right-from-square text-[10px]"></i>Open</a>` : '<span class="text-[var(--muted)] text-sm">—</span>'}
+            </td>
             <td class="p-4 text-right text-xs text-[var(--muted)]">${time}</td>
             <td class="p-4">
               <div class="flex items-center gap-1.5 flex-wrap">
@@ -734,7 +511,6 @@
     }
 
     function attachActionListeners() {
-      // Approve / reject
       document.querySelectorAll('.btn-approve').forEach(btn => {
         btn.replaceWith(btn.cloneNode(true));
       });
@@ -757,7 +533,6 @@
           await updateRequestStatus(requestId, 'rejected');
         });
       });
-      // Copy email
       document.querySelectorAll('.copy-email-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -766,7 +541,6 @@
           showToast('Email copied!', 'fa-copy');
         });
       });
-      // Copy password
       document.querySelectorAll('.copy-password-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -777,14 +551,6 @@
           } else {
             showToast('No password set', 'fa-exclamation-circle');
           }
-        });
-      });
-      // OPEN PREVIEW BUTTONS
-      document.querySelectorAll('.open-preview-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const url = e.currentTarget.dataset.url;
-          openPreview(url);
         });
       });
     }
