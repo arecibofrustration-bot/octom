@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    /* ----- theme variables & base styles (same as original) ----- */
+    /* ----- theme variables & base styles ----- */
     :root {
       --bg: #f8fafc; --fg: #0f172a; --muted: #64748b; --accent: #0f172a;
       --card: #ffffff; --border: #e2e8f0; --approved: #10b981; --rejected: #ef4444;
@@ -39,6 +39,8 @@
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background-color: var(--bg);
       color: var(--fg);
+      /* Prevent horizontal body scroll */
+      overflow-x: hidden; 
     }
     .toast {
       position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px);
@@ -136,26 +138,33 @@
     .bg-\[var\(--card\)\] { background-color: var(--card); }
     .border-\[var\(--border\)\] { border-color: var(--border); }
 
-    /* ---- SIDE PREVIEW PANEL (new layout approach) ---- */
+    /* ---- PERFECTED SIDE PREVIEW PANEL LAYOUT ---- */
     .dashboard-layout {
       display: flex;
       flex: 1;
-      width: 100%;
-      max-width: 1800px;
+      width: 100vw;
+      max-width: 100%;
       margin: 0 auto;
       position: relative;
+      overflow: hidden;
     }
+    
     .main-content {
       flex: 1 1 100%;
-      min-width: 0; /* prevent overflow */
-      transition: flex-basis 0.25s ease, max-width 0.25s ease;
+      min-width: 0;
+      transition: flex 0.3s ease, padding 0.3s ease;
       padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      /* Removed overflow-y: auto here so the page scrolls naturally */
     }
+
     .preview-panel {
-      flex: 0 0 0; /* collapsed by default */
-      max-width: 0;
+      flex: 0 0 0px;
+      width: 0;
+      opacity: 0;
       overflow: hidden;
-      transition: flex-basis 0.3s ease, max-width 0.3s ease;
+      transition: flex 0.3s ease, width 0.3s ease, opacity 0.3s ease;
       border-left: 1px solid var(--border);
       background: var(--card);
       display: flex;
@@ -164,34 +173,41 @@
       z-index: 5;
       box-shadow: -4px 0 15px -5px rgba(0,0,0,0.05);
     }
+
     .preview-panel.open {
       flex: 1 1 45%;
-      max-width: 45%;
+      width: 45%;
+      opacity: 1;
       min-width: 380px;
     }
+
     @media (max-width: 1200px) {
       .preview-panel.open {
         flex: 1 1 50%;
-        max-width: 50%;
+        width: 50%;
         min-width: 340px;
       }
     }
+
     @media (max-width: 900px) {
       .dashboard-layout {
         flex-direction: column;
       }
       .preview-panel {
+        width: 100%;
         flex: 0 0 0;
-        max-width: 100%;
+        max-height: 0;
         border-left: none;
         border-top: 1px solid var(--border);
-        transition: flex-basis 0.3s ease, max-height 0.3s ease;
-        max-height: 0;
+        transition: max-height 0.3s ease, opacity 0.3s ease;
+        opacity: 0;
       }
       .preview-panel.open {
         flex: 1 1 auto;
+        width: 100%;
         max-height: 55vh;
         min-height: 380px;
+        opacity: 1;
       }
     }
 
@@ -347,9 +363,10 @@
             </button>
           </div>
 
+          <!-- FIXED: Removed flex-1 so the box wraps its contents nicely instead of stretching to the bottom -->
           <div class="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-[1100px]">
+            <div class="overflow-x-auto w-full">
+              <table class="w-full min-w-[900px]">
                 <thead>
                   <tr class="border-b border-[var(--border)] text-left text-[var(--muted)] text-xs uppercase tracking-wider bg-[var(--surface)]/50">
                     <th class="p-4 font-medium"><i class="fas fa-hashtag mr-1.5 opacity-60"></i>Request ID</th>
@@ -365,7 +382,8 @@
                 </tbody>
               </table>
             </div>
-            <div id="empty-state" class="p-12 text-center text-[var(--muted)] hidden">
+            <!-- FIXED: Set a reasonable py-16 height for the empty state, removed h-full/min-h-300px -->
+            <div id="empty-state" class="py-16 text-center text-[var(--muted)] hidden flex-col items-center justify-center">
               <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
               <p class="font-medium">No pending requests</p>
               <p class="text-sm">All caught up! Requests will appear here.</p>
