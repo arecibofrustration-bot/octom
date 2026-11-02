@@ -542,25 +542,38 @@
     // ---- Side preview functions ----
     function openPreview(url) {
       if (!url || url === '#') return;
-      // Show panel
       previewPanel.classList.add('open');
-      // Update URL display
       previewUrlDisplay.textContent = url;
-      // Show loading, hide placeholder & iframe
       previewLoading.style.display = 'flex';
       previewPlaceholder.style.display = 'none';
       previewIframe.style.display = 'none';
-      // Set iframe src
-      previewIframe.src = url;
-      // When iframe loads, hide loading and show iframe
+    
+      let loaded = false;
+      const timeout = setTimeout(() => {
+        if (!loaded) {
+          previewLoading.style.display = 'none';
+          previewIframe.style.display = 'none';
+          previewPlaceholder.style.display = 'flex';
+          previewPlaceholder.innerHTML = `
+            <i class="fas fa-shield-halved"></i>
+            <p class="text-sm font-medium">This site blocks embedding</p>
+            <p class="text-xs px-4">The site sets <code>X-Frame-Options</code> or CSP, so it can't be previewed here.</p>
+            <button class="btn btn-secondary mt-2" onclick="window.open('${url}', '_blank', 'noopener')">
+              <i class="fas fa-external-link-alt"></i> Open in new tab
+            </button>`;
+        }
+      }, 4000);
+    
       previewIframe.onload = () => {
-        // Only hide loading if the iframe actually loaded a real URL (not about:blank initially)
         if (previewIframe.src && previewIframe.src !== 'about:blank') {
+          loaded = true;
+          clearTimeout(timeout);
           previewLoading.style.display = 'none';
           previewIframe.style.display = 'block';
           previewPlaceholder.style.display = 'none';
         }
       };
+      previewIframe.src = url;
     }
 
     function closePreview() {
