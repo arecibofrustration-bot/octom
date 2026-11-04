@@ -138,7 +138,7 @@
     .bg-\[var\(--card\)\] { background-color: var(--card); }
     .border-\[var\(--border\)\] { border-color: var(--border); }
 
-    /* ---- PERFECTED SIDE PREVIEW PANEL LAYOUT ---- */
+    /* ---- SIDE PREVIEW PANEL LAYOUT ---- */
     .dashboard-layout {
       display: flex;
       flex: 1;
@@ -156,7 +156,6 @@
       padding: 1.5rem 1.25rem;
       display: flex;
       flex-direction: column;
-      /* Removed overflow-y: auto here so the page scrolls naturally */
     }
 
     .preview-panel {
@@ -363,7 +362,6 @@
             </button>
           </div>
 
-          <!-- FIXED: Removed flex-1 so the box wraps its contents nicely instead of stretching to the bottom -->
           <div class="rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
             <div class="overflow-x-auto w-full">
               <table class="w-full min-w-[900px]">
@@ -382,7 +380,6 @@
                 </tbody>
               </table>
             </div>
-            <!-- FIXED: Set a reasonable py-16 height for the empty state, removed h-full/min-h-300px -->
             <div id="empty-state" class="py-16 text-center text-[var(--muted)] hidden flex-col items-center justify-center">
               <i class="fas fa-inbox text-4xl mb-3 opacity-30"></i>
               <p class="font-medium">No pending requests</p>
@@ -391,7 +388,7 @@
           </div>
         </div>
 
-        <!-- Side preview panel (always in DOM, toggled via class) -->
+        <!-- Side preview panel -->
         <div class="preview-panel" id="preview-panel">
           <div class="preview-panel-header">
             <span class="url-text" id="preview-url-display">No page loaded</span>
@@ -406,11 +403,23 @@
               <p class="text-sm font-medium">Click "Open" on a redirect link</p>
               <p class="text-xs">The page will appear here</p>
             </div>
+            
             <!-- Loading indicator -->
             <div class="preview-panel-loading" id="preview-loading" style="display: none;">
               <div class="spinner"></div>
               <span>Loading page…</span>
             </div>
+
+            <!-- Blocked Fallback -->
+            <div id="preview-blocked" class="preview-placeholder" style="display: none;">
+              <i class="fas fa-shield-halved text-[var(--rejected)]"></i>
+              <p class="text-sm font-medium text-[var(--fg)]">Preview Blocked by Site</p>
+              <p class="text-xs mb-2 px-4">This site uses anti-clickjacking protection and refuses to load in a frame.</p>
+              <button id="open-new-tab-btn" class="btn btn-primary text-xs mt-2">
+                <i class="fas fa-external-link-alt"></i> Open in New Tab
+              </button>
+            </div>
+
             <!-- Iframe -->
             <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin allow-forms" src="about:blank" title="Redirect preview" style="display: none;"></iframe>
           </div>
@@ -455,6 +464,12 @@
     const previewPlaceholder = document.getElementById('preview-placeholder');
     const previewLoading = document.getElementById('preview-loading');
     const previewCloseBtn = document.getElementById('preview-close');
+    
+    // NEW: Blocked elements
+    const previewBlocked = document.getElementById('preview-blocked');
+    const openNewTabBtn = document.getElementById('open-new-tab-btn');
+    let currentPreviewUrl = '';
+    let previewTimeout = null;
 
     // ---- Audio helpers ----
     function ensureAudioContext() {
@@ -560,34 +575,62 @@
     // ---- Side preview functions ----
     function openPreview(url) {
       if (!url || url === '#') return;
+      currentPreviewUrl = url;
+      
       // Show panel
       previewPanel.classList.add('open');
       // Update URL display
       previewUrlDisplay.textContent = url;
-      // Show loading, hide placeholder & iframe
+      
+      // Show loading, hide other states
       previewLoading.style.display = 'flex';
       previewPlaceholder.style.display = 'none';
+      previewBlocked.style.display = 'none';
       previewIframe.style.display = 'none';
+      
+      // Set up the "New Tab" button action
+      openNewTabBtn.onclick = () => {
+        window.open(url, '_blank', 'noopener');
+      };
+
       // Set iframe src
       previewIframe.src = url;
+      
+      let loaded = false;
+      
       // When iframe loads, hide loading and show iframe
       previewIframe.onload = () => {
-        // Only hide loading if the iframe actually loaded a real URL (not about:blank initially)
         if (previewIframe.src && previewIframe.src !== 'about:blank') {
+          loaded = true;
           previewLoading.style.display = 'none';
           previewIframe.style.display = 'block';
-          previewPlaceholder.style.display = 'none';
+          if (previewTimeout) clearTimeout(previewTimeout);
         }
       };
+
+      // If it doesn't load within 4 seconds, show the "Blocked" fallback
+      if (previewTimeout) clearTimeout(previewTimeout);
+      previewTimeout = setTimeout(() => {
+        // Only trigger if we haven't loaded and the panel is still open for this URL
+        if (!loaded && previewPanel.classList.contains('open') && currentPreviewUrl === url) {
+          previewLoading.style.display = 'none';
+          previewIframe.style.display = 'none';
+          previewBlocked.style.display = 'flex';
+        }
+      }, 4000);
     }
 
     function closePreview() {
       previewPanel.classList.remove('open');
+      currentPreviewUrl = '';
+      if (previewTimeout) clearTimeout(previewTimeout);
+      
       // Reset after animation
       setTimeout(() => {
         previewIframe.src = 'about:blank';
         previewIframe.style.display = 'none';
         previewLoading.style.display = 'none';
+        previewBlocked.style.display = 'none';
         previewPlaceholder.style.display = 'flex';
         previewUrlDisplay.textContent = 'No page loaded';
       }, 300);
