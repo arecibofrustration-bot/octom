@@ -138,7 +138,11 @@
     .bg-\[var\(--card\)\] { background-color: var(--card); }
     .border-\[var\(--border\)\] { border-color: var(--border); }
 
+<<<<<<< HEAD
     /* ---- PERFECTED SIDE PREVIEW PANEL LAYOUT ---- */
+=======
+    /* ---- SIDE PREVIEW PANEL LAYOUT ---- */
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
     .dashboard-layout {
       display: flex;
       flex: 1;
@@ -390,6 +394,7 @@
 
         <!-- Side preview panel -->
         <div class="preview-panel" id="preview-panel">
+<<<<<<< HEAD
           
           <!-- UPDATED HEADER: Added permanent Open in New Tab button -->
           <div class="preview-panel-header">
@@ -418,6 +423,36 @@
             <div class="preview-panel-loading" id="preview-loading" style="display: none;">
               <div class="spinner"></div>
               <span>Loading page…</span>
+=======
+          <div class="preview-panel-header">
+            <span class="url-text" id="preview-url-display">No page loaded</span>
+            <button class="preview-panel-close" id="preview-close" title="Close preview">
+              <i class="fas fa-xmark"></i>
+            </button>
+          </div>
+          <div class="preview-panel-body">
+            <!-- Placeholder shown when no iframe active -->
+            <div class="preview-placeholder" id="preview-placeholder">
+              <i class="fas fa-globe"></i>
+              <p class="text-sm font-medium">Click "Open" on a redirect link</p>
+              <p class="text-xs">The page will appear here</p>
+            </div>
+            
+            <!-- Loading indicator -->
+            <div class="preview-panel-loading" id="preview-loading" style="display: none;">
+              <div class="spinner"></div>
+              <span>Loading page…</span>
+            </div>
+
+            <!-- Blocked Fallback -->
+            <div id="preview-blocked" class="preview-placeholder" style="display: none;">
+              <i class="fas fa-shield-halved text-[var(--rejected)]"></i>
+              <p class="text-sm font-medium text-[var(--fg)]">Preview Blocked by Site</p>
+              <p class="text-xs mb-2 px-4">This site uses anti-clickjacking protection and refuses to load in a frame.</p>
+              <button id="open-new-tab-btn" class="btn btn-primary text-xs mt-2">
+                <i class="fas fa-external-link-alt"></i> Open in New Tab
+              </button>
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
             </div>
 
             <!-- Iframe -->
@@ -465,9 +500,17 @@
     const previewLoading = document.getElementById('preview-loading');
     const previewCloseBtn = document.getElementById('preview-close');
     
+<<<<<<< HEAD
     // UPDATED: New header button elements
     const headerOpenNewTabBtn = document.getElementById('header-open-new-tab-btn');
     let currentPreviewUrl = '';
+=======
+    // NEW: Blocked elements
+    const previewBlocked = document.getElementById('preview-blocked');
+    const openNewTabBtn = document.getElementById('open-new-tab-btn');
+    let currentPreviewUrl = '';
+    let previewTimeout = null;
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
 
     // ---- Audio helpers ----
     function ensureAudioContext() {
@@ -580,6 +623,7 @@
       // Update URL display
       previewUrlDisplay.textContent = url;
       
+<<<<<<< HEAD
       // Show loading, hide placeholder & iframe
       previewLoading.style.display = 'flex';
       previewPlaceholder.style.display = 'none';
@@ -598,25 +642,72 @@
           previewIframe.style.display = 'block';
         }
       };
+=======
+      // Show loading, hide other states
+      previewLoading.style.display = 'flex';
+      previewPlaceholder.style.display = 'none';
+      previewBlocked.style.display = 'none';
+      previewIframe.style.display = 'none';
+      
+      // Set up the "New Tab" button action
+      openNewTabBtn.onclick = () => {
+        window.open(url, '_blank', 'noopener');
+      };
+
+      // Set iframe src
+      previewIframe.src = url;
+      
+      let loaded = false;
+      
+      // When iframe loads, hide loading and show iframe
+      previewIframe.onload = () => {
+        if (previewIframe.src && previewIframe.src !== 'about:blank') {
+          loaded = true;
+          previewLoading.style.display = 'none';
+          previewIframe.style.display = 'block';
+          if (previewTimeout) clearTimeout(previewTimeout);
+        }
+      };
+
+      // If it doesn't load within 4 seconds, show the "Blocked" fallback
+      if (previewTimeout) clearTimeout(previewTimeout);
+      previewTimeout = setTimeout(() => {
+        // Only trigger if we haven't loaded and the panel is still open for this URL
+        if (!loaded && previewPanel.classList.contains('open') && currentPreviewUrl === url) {
+          previewLoading.style.display = 'none';
+          previewIframe.style.display = 'none';
+          previewBlocked.style.display = 'flex';
+        }
+      }, 4000);
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
     }
 
     function closePreview() {
       previewPanel.classList.remove('open');
       currentPreviewUrl = '';
+<<<<<<< HEAD
       
       // Hide header "New Tab" button
       headerOpenNewTabBtn.classList.add('hidden');
+=======
+      if (previewTimeout) clearTimeout(previewTimeout);
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
       
       // Reset after animation
       setTimeout(() => {
         previewIframe.src = 'about:blank';
         previewIframe.style.display = 'none';
         previewLoading.style.display = 'none';
+<<<<<<< HEAD
+=======
+        previewBlocked.style.display = 'none';
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
         previewPlaceholder.style.display = 'flex';
         previewUrlDisplay.textContent = 'No page loaded';
       }, 300);
     }
 
+<<<<<<< HEAD
     // Header "Open in New Tab" button action
     headerOpenNewTabBtn.addEventListener('click', () => {
       if (currentPreviewUrl && currentPreviewUrl !== '#') {
@@ -624,6 +715,8 @@
       }
     });
 
+=======
+>>>>>>> 98ede79a5884523f14e68383c843face54927392
     // Close button
     previewCloseBtn.addEventListener('click', closePreview);
     // Also close when pressing Escape
